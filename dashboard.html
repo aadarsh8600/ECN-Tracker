@@ -1,0 +1,2544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ECN Tracker — Engineering Change Notice Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.1.0/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+:root {
+  --blue-900:#0C2340;--blue-800:#103A6B;--blue-700:#185FA5;--blue-600:#1E88E5;
+  --blue-100:#E6F1FB;--blue-50:#F0F7FF;
+  --teal-700:#0F6E56;--teal-500:#1D9E75;--teal-100:#E1F5EE;
+  --amber-700:#854F0B;--amber-500:#EF9F27;--amber-100:#FAEEDA;
+  --red-700:#A32D2D;--red-500:#DC2626;--red-100:#FAECE7;
+  --purple-700:#534AB7;--purple-500:#7C3AED;--purple-100:#EEEDFE;
+  --green-700:#2E7D32;--green-100:#E8F5E9;
+  --indigo-700:#3949AB;--indigo-100:#E8EAF6;
+  --pink-700:#C2185B;--pink-100:#FCE4EC;
+  --grey-950:#0D1117;--grey-900:#1A1F2B;--grey-800:#252B38;
+  --grey-700:#343B4A;--grey-600:#4A5568;--grey-500:#64748B;
+  --grey-400:#94A3B8;--grey-300:#CBD5E1;--grey-200:#E2E8F0;
+  --grey-100:#F1F5F9;--grey-50:#F8FAFC;--white:#FFFFFF;
+  --sidebar-w:224px;--topbar-h:54px;
+  --r-sm:6px;--r-md:10px;--r-lg:14px;
+  --sh-sm:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+  --sh-md:0 4px 12px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.04);
+  --sh-lg:0 8px 24px rgba(0,0,0,.1),0 4px 8px rgba(0,0,0,.06);
+  --font:'Inter',system-ui,sans-serif;
+  --mono:'JetBrains Mono',monospace;
+  --tr:150ms ease;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:var(--font);font-size:13px;color:var(--grey-900);background:var(--grey-50)}
+button{font-family:var(--font);cursor:pointer;border:none;background:none}
+input,select{font-family:var(--font)}
+
+/* ── SHELL ── */
+.shell{display:flex;height:100vh;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sidebar{width:var(--sidebar-w);min-width:var(--sidebar-w);background:var(--grey-900);display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--grey-700) transparent;border-right:1px solid var(--grey-800);flex-shrink:0}
+.sidebar::-webkit-scrollbar{width:4px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--grey-700);border-radius:2px}
+.sb-logo{display:flex;align-items:center;gap:10px;padding:15px 14px 13px;border-bottom:1px solid var(--grey-800);flex-shrink:0}
+.sb-logo-icon{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--blue-700),var(--blue-600));display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 8px rgba(24,95,165,.4)}
+.sb-logo-icon i{font-size:17px;color:#fff}
+.sb-logo-title{font-size:13px;font-weight:700;color:var(--white);letter-spacing:.01em}
+.sb-logo-sub{font-size:10px;color:var(--grey-400);margin-top:1px}
+.sb-section{padding:10px 0 4px}
+.sb-label{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--grey-600);padding:0 14px 5px}
+.sb-item{display:flex;align-items:center;gap:8px;padding:7px 14px;font-size:12px;font-weight:400;color:var(--grey-400);cursor:pointer;border-left:2px solid transparent;transition:all var(--tr);white-space:nowrap;overflow:hidden}
+.sb-item i{font-size:15px;flex-shrink:0}
+.sb-item:hover{color:var(--grey-100);background:rgba(255,255,255,.04)}
+.sb-item.active{color:var(--white);background:rgba(24,95,165,.2);border-left-color:var(--blue-600);font-weight:500}
+.sb-footer{margin-top:auto;padding:12px 12px 14px;border-top:1px solid var(--grey-800);flex-shrink:0}
+.sb-refresh{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:8px 12px;font-size:12px;font-weight:500;color:var(--blue-600);background:rgba(24,95,165,.12);border-radius:var(--r-sm);transition:all var(--tr)}
+.sb-refresh:hover{background:rgba(24,95,165,.25);color:var(--blue-100)}
+.sb-refresh i{font-size:13px}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+/* ── TOPBAR ── */
+.topbar{height:var(--topbar-h);display:flex;align-items:center;padding:0 20px;background:var(--white);border-bottom:1px solid var(--grey-200);gap:10px;flex-shrink:0;box-shadow:var(--sh-sm);z-index:10}
+.topbar-icon{width:30px;height:30px;border-radius:var(--r-sm);background:var(--blue-50);display:flex;align-items:center;justify-content:center;color:var(--blue-700)}
+.topbar-icon i{font-size:15px}
+.topbar-title{font-size:14px;font-weight:700;color:var(--grey-900)}
+.topbar-sep{width:1px;height:16px;background:var(--grey-200)}
+.topbar-crumb{font-size:11px;color:var(--grey-500)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px}
+.pill-blue{background:var(--blue-100);color:var(--blue-700)}
+.pill-green{background:var(--teal-100);color:var(--teal-700)}
+.pill-live::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--teal-500);box-shadow:0 0 0 2px rgba(29,158,117,.25);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 2px rgba(29,158,117,.25)}50%{box-shadow:0 0 0 5px rgba(29,158,117,.1)}}
+
+/* ── BODY ── */
+.body{flex:1;overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:16px;scrollbar-width:thin;scrollbar-color:var(--grey-300) transparent}
+.body::-webkit-scrollbar{width:6px}
+.body::-webkit-scrollbar-thumb{background:var(--grey-300);border-radius:3px}
+
+/* ── PAGES ── */
+.page{display:none;flex-direction:column;gap:16px}
+.page.active{display:flex}
+
+/* ── SECTION HEADER ── */
+.sec-header{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:12px;border-bottom:1px solid var(--grey-200);margin-bottom:2px}
+.sec-title{font-size:15px;font-weight:700;color:var(--grey-900);display:flex;align-items:center;gap:8px}
+.sec-title i{font-size:17px;color:var(--blue-600)}
+.sec-sub{font-size:11px;color:var(--grey-500);margin-top:2px}
+
+/* ── KPI CARDS ── */
+.kpi-grid{display:grid;gap:10px}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.kpi{background:var(--white);border:1px solid var(--grey-200);border-radius:var(--r-md);padding:14px 16px;position:relative;overflow:hidden;box-shadow:var(--sh-sm);transition:box-shadow var(--tr),transform var(--tr)}
+.kpi:hover{box-shadow:var(--sh-md);transform:translateY(-1px)}
+.kpi-bar{position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px}
+.b-blue{background:var(--blue-600)}.b-teal{background:var(--teal-500)}.b-amber{background:var(--amber-500)}.b-red{background:var(--red-500)}.b-purple{background:var(--purple-500)}.b-green{background:var(--green-700)}.b-pink{background:var(--pink-700)}
+.kpi-label{font-size:11px;color:var(--grey-500);margin-bottom:6px;display:flex;align-items:center;gap:5px;font-weight:500}
+.kpi-label i{font-size:13px}
+.kpi-val{font-size:28px;font-weight:700;color:var(--grey-900);line-height:1;font-variant-numeric:tabular-nums}
+.kpi-delta{font-size:11px;margin-top:5px;display:flex;align-items:center;gap:3px}
+.d-up{color:var(--teal-700)}.d-down{color:var(--red-700)}.d-neutral{color:var(--grey-400)}
+
+/* ── CARDS ── */
+.card{background:var(--white);border:1px solid var(--grey-200);border-radius:var(--r-lg);padding:16px 18px;box-shadow:var(--sh-sm)}
+.card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.card-title{font-size:13px;font-weight:600;color:var(--grey-900);display:flex;align-items:center;gap:7px}
+.card-title i{font-size:15px;color:var(--grey-400)}
+
+/* ── GRID LAYOUTS ── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.chart-filter-layout{display:grid;grid-template-columns:180px 1fr;gap:14px}
+
+/* ── TREND TABS ── */
+.trend-tabs{display:flex;border:1px solid var(--grey-200);border-radius:var(--r-sm);overflow:hidden}
+.trend-tab{flex:1;padding:5px 10px;font-size:11px;font-weight:500;color:var(--grey-500);background:var(--white);cursor:pointer;transition:all var(--tr);border-right:1px solid var(--grey-200);text-align:center}
+.trend-tab:last-child{border-right:none}
+.trend-tab:hover{background:var(--grey-50);color:var(--grey-700)}
+.trend-tab.active{background:var(--blue-700);color:#fff}
+
+/* ── PROGRESS BARS ── */
+.bar-list{display:flex;flex-direction:column;gap:9px}
+.bar-row{display:flex;align-items:center;gap:10px}
+.bar-lbl{font-size:11px;color:var(--grey-600);width:130px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-track{flex:1;height:7px;background:var(--grey-100);border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1.2s cubic-bezier(.4,0,.2,1)}
+.f-blue{background:var(--blue-600)}.f-teal{background:var(--teal-500)}.f-amber{background:var(--amber-500)}.f-red{background:var(--red-500)}.f-purple{background:var(--purple-500)}
+.bar-pct{font-size:11px;font-weight:600;color:var(--grey-600);width:36px;text-align:right;flex-shrink:0}
+
+/* ── CHART ── */
+.chart-wrap{position:relative}
+.chart-wrap canvas{max-width:100%}
+.chart-legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--grey-600)}
+.leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+
+/* ── QUICK NAV TILES ── */
+.qnav-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+.qtile{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--grey-200);border-radius:var(--r-md);cursor:pointer;transition:all var(--tr);background:var(--white)}
+.qtile:hover{border-color:var(--blue-600);background:var(--blue-50);box-shadow:var(--sh-md)}
+.q-icon{width:32px;height:32px;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.qi-blue{background:var(--blue-100);color:var(--blue-700)}.qi-teal{background:var(--teal-100);color:var(--teal-700)}.qi-amber{background:var(--amber-100);color:var(--amber-700)}.qi-red{background:var(--red-100);color:var(--red-700)}.qi-purple{background:var(--purple-100);color:var(--purple-700)}.qi-green{background:var(--green-100);color:var(--green-700)}.qi-indigo{background:var(--indigo-100);color:var(--indigo-700)}.qi-pink{background:var(--pink-100);color:var(--pink-700)}
+.q-name{font-size:12px;font-weight:600;color:var(--grey-900)}
+.q-sub{font-size:10px;color:var(--grey-500);margin-top:1px}
+
+/* ── FILTER PANEL ── */
+.filter-panel{background:var(--white);border:1px solid var(--grey-200);border-radius:var(--r-lg);padding:14px;box-shadow:var(--sh-sm);font-size:12px}
+.fp-title{font-size:12px;font-weight:600;color:var(--grey-700);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.fp-group{margin-bottom:12px}
+.fp-label{display:block;font-size:10px;font-weight:600;color:var(--grey-400);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em}
+.fp-select,.fp-input{width:100%;padding:6px 8px;border:1px solid var(--grey-200);border-radius:var(--r-sm);font-size:12px;color:var(--grey-800);background:var(--grey-50);outline:none;appearance:none;transition:border-color var(--tr)}
+.fp-select:focus,.fp-input:focus{border-color:var(--blue-600);background:var(--white)}
+.fp-reset{width:100%;padding:7px;font-size:11px;font-weight:600;color:var(--blue-700);background:var(--blue-100);border-radius:var(--r-sm);text-align:center;cursor:pointer;transition:all var(--tr);margin-top:4px}
+.fp-reset:hover{background:var(--blue-700);color:#fff}
+
+/* ── TABLE ── */
+.tbl-toolbar{display:flex;align-items:center;gap:9px;margin-bottom:10px;flex-wrap:wrap}
+.search-box{display:flex;align-items:center;gap:7px;background:var(--grey-50);border:1px solid var(--grey-200);border-radius:var(--r-sm);padding:6px 10px;flex:1;min-width:160px;max-width:300px}
+.search-box i{font-size:14px;color:var(--grey-400);flex-shrink:0}
+.search-box input{border:none;background:none;outline:none;font-size:12px;color:var(--grey-800);width:100%}
+.search-box input::placeholder{color:var(--grey-400)}
+.tbl-filter-select{padding:6px 9px;border:1px solid var(--grey-200);border-radius:var(--r-sm);font-size:12px;color:var(--grey-700);background:var(--white);outline:none;appearance:none;cursor:pointer}
+.dl-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;font-size:12px;font-weight:500;color:var(--blue-700);background:var(--blue-100);border-radius:var(--r-sm);transition:all var(--tr);margin-left:auto;white-space:nowrap}
+.dl-btn:hover{background:var(--blue-700);color:#fff}
+.tbl-count{font-size:11px;color:var(--grey-400);white-space:nowrap}
+.tbl-wrap{overflow:auto;max-height:480px;border:1px solid var(--grey-200);border-radius:var(--r-md)}
+.tbl-wrap::-webkit-scrollbar{width:6px;height:6px}
+.tbl-wrap::-webkit-scrollbar-thumb{background:var(--grey-300);border-radius:3px}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:500px}
+thead th{position:sticky;top:0;z-index:3;background:var(--grey-900);color:var(--white);font-size:11px;font-weight:600;letter-spacing:.04em;padding:9px 12px;text-align:left;white-space:nowrap;border-right:1px solid var(--grey-800);cursor:pointer;user-select:none}
+thead th:last-child{border-right:none}
+thead th:hover{background:var(--grey-800)}
+thead th .sort-icon{opacity:.4;margin-left:4px;font-size:10px}
+thead th.sort-asc .sort-icon::after{content:'↑'}
+thead th.sort-desc .sort-icon::after{content:'↓'}
+thead th:not(.sort-asc):not(.sort-desc) .sort-icon::after{content:'↕'}
+tbody tr{border-bottom:1px solid var(--grey-100);transition:background var(--tr)}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--blue-50)}
+tbody tr:nth-child(even){background:var(--grey-50)}
+tbody tr:nth-child(even):hover{background:var(--blue-50)}
+tbody td{padding:8px 12px;color:var(--grey-800);border-right:1px solid var(--grey-100);white-space:nowrap;vertical-align:middle;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+tbody td:last-child{border-right:none}
+.td-mono{font-family:var(--mono);font-size:11px}
+
+/* ── STATUS TAGS ── */
+.tag{display:inline-flex;align-items:center;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;white-space:nowrap}
+.tag-green{background:var(--teal-100);color:var(--teal-700)}
+.tag-blue{background:var(--blue-100);color:var(--blue-700)}
+.tag-amber{background:var(--amber-100);color:var(--amber-700)}
+.tag-red{background:var(--red-100);color:var(--red-700)}
+.tag-purple{background:var(--purple-100);color:var(--purple-700)}
+
+/* ── LOADING / EMPTY / ERROR ── */
+.loading,.empty,.error-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;color:var(--grey-400);gap:10px;text-align:center}
+.spinner{width:26px;height:26px;border:3px solid var(--grey-200);border-top-color:var(--blue-600);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty i,.error-state i{font-size:32px}
+.empty p,.error-state p{font-size:12px}
+.error-state i{color:var(--red-500)}
+.error-state p{color:var(--red-700)}
+.retry-btn{padding:7px 14px;font-size:12px;font-weight:500;color:var(--blue-700);background:var(--blue-100);border-radius:var(--r-sm);cursor:pointer;margin-top:6px;border:none;transition:all var(--tr)}
+.retry-btn:hover{background:var(--blue-700);color:#fff}
+
+/* ── DONUT SUMMARY ── */
+.donut-wrap{display:flex;align-items:center;gap:20px}
+.donut-legend{display:flex;flex-direction:column;gap:8px}
+.donut-leg-item{display:flex;align-items:center;gap:8px;font-size:12px}
+.donut-leg-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0}
+.donut-leg-label{color:var(--grey-600);flex:1}
+.donut-leg-val{font-weight:600;color:var(--grey-900)}
+
+/* ── SCROLLING TICKER ── */
+.ticker-bar{background:var(--grey-900);color:var(--grey-400);font-size:10px;padding:5px 20px;display:flex;align-items:center;gap:10px;overflow:hidden;border-bottom:1px solid var(--grey-800)}
+.ticker-label{color:var(--blue-400,#93C5FD);font-weight:600;flex-shrink:0;font-size:10px}
+.ticker-track{overflow:hidden;flex:1}
+.ticker-content{display:inline-flex;gap:40px;animation:ticker 30s linear infinite;white-space:nowrap}
+.ticker-content:hover{animation-play-state:paused}
+@keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+
+/* ── MODEL WISE CHART BAR ── */
+.h-bar-list{display:flex;flex-direction:column;gap:5px;max-height:300px;overflow-y:auto}
+.h-bar-row{display:flex;align-items:center;gap:8px}
+.h-bar-model{font-size:11px;color:var(--grey-700);width:100px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.h-bar-track{flex:1;height:16px;background:var(--grey-100);border-radius:4px;overflow:hidden;position:relative}
+.h-bar-fill{height:100%;border-radius:4px;transition:width 1s ease}
+.h-bar-count{position:absolute;right:5px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:600;color:#fff;mix-blend-mode:difference}
+.h-bar-total{font-size:11px;font-weight:600;color:var(--grey-600);width:30px;text-align:right;flex-shrink:0}
+
+/* ── RESPONSIVE ── */
+@media(max-width:1100px){.g4{grid-template-columns:repeat(2,1fr)}.two-col{grid-template-columns:1fr}.chart-filter-layout{grid-template-columns:1fr}}
+@media(max-width:800px){.sidebar{display:none}.g5{grid-template-columns:repeat(2,1fr)}}
+
+/* ── TOPBAR ICON BUTTONS ── */
+.topbar-btn{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:var(--r-sm);color:var(--grey-500);background:transparent;transition:all var(--tr);border:1px solid transparent}
+.topbar-btn:hover{background:var(--grey-100);color:var(--grey-700);border-color:var(--grey-200)}
+.topbar-btn i{font-size:15px}
+
+/* ── DARK MODE ── */
+.dark{--white:#1E2330;--grey-50:#171B26;--grey-100:#252B38;--grey-200:#323A4A;--grey-300:#4A5568;--grey-400:#64748B;--grey-500:#94A3B8;--grey-600:#CBD5E1;--grey-700:#E2E8F0;--grey-800:#F1F5F9;--grey-900:#F8FAFC;--grey-950:#FFFFFF}
+.dark .sidebar{background:#0D1117;border-right-color:#1A1F2B}
+.dark .sb-item.active{background:rgba(30,136,229,.15)}
+.dark .topbar{background:#1A1F2B;border-bottom-color:#252B38}
+.dark .card,.dark .kpi,.dark .filter-panel,.dark .qtile,.dark .tl-item{background:#1E2330;border-color:#2D3547}
+.dark .tbl-wrap{border-color:#2D3547}
+
+/* --- FORCE TABLE HEADERS TO DARK BACKGROUND & WHITE TEXT --- */
+.dark thead th {
+    background-color: #0D1117 !important; /* Keeps the background dark */
+    color: #FFFFFF !important;            /* Makes the text pure white */
+}
+
+.dark thead th span {
+    color: #FFFFFF !important;            /* Makes the sorting arrows white */
+}
+
+/* Force the "row count" text to be a readable light gray */
+.dark .tbl-count {
+    color: #CBD5E1 !important;
+}
+.dark tbody tr:nth-child(even){background:#252B38}
+.dark tbody tr:hover,.dark tbody tr:nth-child(even):hover{background:rgba(30,136,229,.08)}
+.dark tbody td{border-right-color:#252B38;color:var(--grey-600)}
+.dark tbody tr{border-bottom-color:#252B38}
+.dark .search-box{background:#252B38;border-color:#2D3547}
+.dark .search-box input{color:var(--grey-600)}
+.dark .tbl-filter-select{background:#252B38;border-color:#2D3547;color:var(--grey-600)}
+.dark .fp-select,.dark .fp-input{background:#252B38;border-color:#2D3547;color:var(--grey-600)}
+.dark .topbar-btn:hover{background:#252B38;border-color:#2D3547}
+.dark .ticker-bar{background:#0D1117;border-bottom-color:#1A1F2B}
+.dark #dark-toggle i::before{content:'\eaad'}
+/* --- FORCE SIDEBAR TEXT TO WHITE IN DARK MODE --- */
+
+/* 1. Makes the currently active tab text and icon pure white */
+.dark .sb-item.active {
+    color: #FFFFFF !important;
+}
+
+/* 2. Prevents other tabs from disappearing when you hover your mouse over them */
+.dark .sb-item:hover {
+    color: #FFFFFF !important;
+}
+/* --- FIX WEEKLY SUMMARY TABLE BACKGROUND IN DARK MODE --- */
+
+/* 1. Force the white cells to become dark and the text to be white */
+.dark #det-weekly-table td,
+.dark #det-weekly-table tr {
+    background-color: #1E2330 !important; 
+    border-color: #2D3547 !important;
+    color: #FFFFFF !important;
+}
+
+/* 2. Fix the light-blue "Ontime Rate" row at the bottom so it fits dark mode */
+.dark #det-weekly-table tr:last-child td,
+.dark #det-weekly-table tr:last-child {
+    background-color: rgba(30, 136, 229, 0.15) !important; /* Subtle dark-blue highlight */
+    color: #60A5FA !important; /* Bright light-blue text */
+    border-color: #2D3547 !important;
+}
+/* --- FORCE LOGO TITLE TO WHITE IN DARK MODE --- */
+.dark .sb-logo-title {
+    color: #FFFFFF !important;
+}
+
+/* ── PAGINATION ── */
+.pagination{display:flex;align-items:center;gap:6px;margin-top:10px;justify-content:flex-end}
+.pg-btn{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:var(--r-sm);font-size:12px;font-weight:500;color:var(--grey-600);background:var(--white);border:1px solid var(--grey-200);cursor:pointer;transition:all var(--tr)}
+.pg-btn:hover{border-color:var(--blue-600);color:var(--blue-700);background:var(--blue-50)}
+.pg-btn.active{background:var(--blue-700);color:#fff;border-color:var(--blue-700)}
+.pg-btn:disabled{opacity:.4;cursor:not-allowed}
+.pg-info{font-size:11px;color:var(--grey-400);margin:0 4px}
+
+/* ── SPARKLINE ON KPI ── */
+.kpi-spark{margin-top:6px;height:32px;width:100%}
+.kpi-spark canvas{width:100%!important;height:32px!important}
+
+/* ── KEYBOARD MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9998;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.open{display:flex}
+.modal-box{background:var(--white);border-radius:var(--r-lg);padding:24px;max-width:420px;width:90%;box-shadow:var(--sh-lg)}
+.modal-title{font-size:15px;font-weight:700;color:var(--grey-900);margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+.modal-close{width:28px;height:28px;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;color:var(--grey-400);cursor:pointer;transition:all var(--tr)}
+.modal-close:hover{background:var(--grey-100);color:var(--grey-700)}
+.kbd-grid{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;align-items:center}
+.kbd{display:inline-flex;align-items:center;justify-content:center;background:var(--grey-100);border:1px solid var(--grey-300);border-radius:4px;padding:2px 8px;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--grey-700);min-width:28px}
+.kbd-desc{font-size:12px;color:var(--grey-600)}
+.kbd-section{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--grey-400);grid-column:1/-1;margin-top:8px;padding-top:8px;border-top:1px solid var(--grey-200)}
+
+/* ── PRINT STYLES ── */
+/* ── PRINT STYLES ── */
+@media print {
+  /* 1. Hide interactive UI elements */
+  .sidebar, .topbar, .ticker-bar, .tbl-toolbar, .dl-btn, .topbar-btn, .sb-footer, .pagination, .toast, .modal-overlay {
+    display: none !important;
+  }
+  
+  /* 2. Release the 100vh height and hidden overflow restrictions */
+  html, body, .shell, .main, .body {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #fff !important;
+  }
+  
+  /* 3. Force ALL pages to render, and put each on a new physical piece of paper */
+  .page {
+    display: flex !important;
+    break-after: page; 
+    page-break-after: always; /* Fallback for older browsers */
+    margin-bottom: 30px;
+  }
+  .page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+  
+  /* 4. Prevent cards, tables, and charts from splitting in half across paper sheets */
+  .card, .kpi, .filter-panel, .chart-wrap {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+  }
+  
+  /* 5. Expand scrolling tables to their full vertical height */
+  .tbl-wrap {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  
+  body {
+    font-size: 11px;
+    color: #000;
+  }
+}
+
+/* ── TOAST NOTIFICATION ── */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--grey-900);color:#fff;padding:10px 16px;border-radius:var(--r-md);font-size:12px;font-weight:500;box-shadow:var(--sh-lg);z-index:9999;transform:translateY(60px);opacity:0;transition:all .3s ease;display:flex;align-items:center;gap:8px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast i{font-size:15px;color:var(--teal-500)}
+</style>
+</head>
+<body>
+
+<!-- TOAST -->
+<div class="toast" id="toast"><i class="ti ti-circle-check"></i><span id="toast-msg">Data loaded</span></div>
+
+<!-- KEYBOARD SHORTCUTS MODAL -->
+<div class="modal-overlay" id="kbd-modal" onclick="if(event.target===this)closeKbd()">
+  <div class="modal-box">
+    <div class="modal-title">
+      Keyboard Shortcuts
+      <div class="modal-close" onclick="closeKbd()"><i class="ti ti-x"></i></div>
+    </div>
+    <div class="kbd-grid">
+      <div class="kbd-section">Navigation</div>
+      <span class="kbd">H</span><span class="kbd-desc">Go to Home</span>
+      <span class="kbd">D</span><span class="kbd-desc">Toggle dark mode</span>
+      <span class="kbd">R</span><span class="kbd-desc">Refresh all data</span>
+      <span class="kbd">?</span><span class="kbd-desc">Show this help</span>
+      <span class="kbd">Esc</span><span class="kbd-desc">Close this dialog</span>
+      <div class="kbd-section">Pages — Mobile</div>
+      <span class="kbd">0</span><span class="kbd-desc">Detailed Records</span>
+      <span class="kbd">1</span><span class="kbd-desc">Model Wise</span>
+      <span class="kbd">2</span><span class="kbd-desc">Overall</span>
+      <span class="kbd">3</span><span class="kbd-desc">Non-SVN Summary</span>
+      <span class="kbd">4</span><span class="kbd-desc">Non-SVN Status</span>
+      <span class="kbd">5</span><span class="kbd-desc">Future Date</span>
+      <span class="kbd">6</span><span class="kbd-desc">SVN Summary</span>
+      <span class="kbd">7</span><span class="kbd-desc">SVN Status</span>
+      <div class="kbd-section">Pages — Tab</div>
+      <span class="kbd">8</span><span class="kbd-desc">TAB Overall</span>
+      <span class="kbd">9</span><span class="kbd-desc">TAB Summary</span>
+      
+    </div>
+  </div>
+</div>
+
+<div class="shell">
+
+<!-- ═══════════════ SIDEBAR ═══════════════ -->
+<nav class="sidebar">
+  <div class="sb-logo">
+    <div class="sb-logo-icon"><i class="ti ti-topology-star-ring-3"></i></div>
+    <div>
+      <div class="sb-logo-title">ECN Tracker</div>
+      <div class="sb-logo-sub">Engineering Change Notices</div>
+    </div>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-label">General</div>
+    <div class="sb-item active" data-page="home"><i class="ti ti-home-2"></i> Home</div>
+    <div class="sb-item" data-page="detailed"><i class="ti ti-table"></i> Detailed Records</div>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-label">📱 Mobile</div>
+    <div class="sb-item" data-page="model-wise"><i class="ti ti-device-mobile-stats"></i> Model Wise</div>
+    <div class="sb-item" data-page="overall"><i class="ti ti-layout-dashboard"></i> Overall</div>
+    <div class="sb-item" data-page="non-svn-summary"><i class="ti ti-chart-line"></i> Non-SVN Summary</div>
+    <div class="sb-item" data-page="non-svn-status"><i class="ti ti-clipboard-list"></i> Non-SVN Status</div>
+    <div class="sb-item" data-page="future-date"><i class="ti ti-calendar-due"></i> Future Date</div>
+    <div class="sb-item" data-page="svn-summary"><i class="ti ti-chart-bar"></i> SVN Summary</div>
+    <div class="sb-item" data-page="svn-status"><i class="ti ti-clipboard-check"></i> SVN Status</div>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-label">💻 Tab</div>
+    <div class="sb-item" data-page="tab-overall"><i class="ti ti-device-tablet"></i> TAB Overall</div>
+    <div class="sb-item" data-page="tab-future"><i class="ti ti-calendar-due"></i> TAB Future Date</div>
+    <div class="sb-item" data-page="tab-summary"><i class="ti ti-chart-line"></i> TAB ECN Summary</div>
+    <div class="sb-item" data-page="tab-status"><i class="ti ti-clipboard-list"></i> TAB ECN Status</div>
+  </div>
+  <div class="sb-section" style="padding: 10px 14px 15px; border-top: 1px solid var(--grey-800);">
+    <div class="sb-label">Global Filters</div>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      
+      <input type="text" id="global-model" oninput="debouncedGlobalFilter()" placeholder="Search Model..." title="Filter by Model" 
+             style="width:100%; font-size:11px; padding:7px; background:rgba(255,255,255,0.05); color:#FFFFFF; border:1px solid var(--grey-700); border-radius:4px; outline:none; font-family:var(--font);">
+
+      <input type="date" id="global-start" onchange="applyGlobalFilter()" title="Start Date" 
+             style="width:100%; font-size:11px; padding:7px; background:rgba(255,255,255,0.05); color:#FFFFFF; color-scheme:dark; border:1px solid var(--grey-700); border-radius:4px; outline:none; font-family:var(--font);">
+      
+      <input type="date" id="global-end" onchange="applyGlobalFilter()" title="End Date" 
+             style="width:100%; font-size:11px; padding:7px; background:rgba(255,255,255,0.05); color:#FFFFFF; color-scheme:dark; border:1px solid var(--grey-700); border-radius:4px; outline:none; font-family:var(--font);">
+      
+      <button class="sb-refresh" onclick="clearGlobalFilter()" style="margin-top:2px;">
+        <i class="ti ti-filter-off"></i> Clear Filters
+      </button>
+    </div>
+  </div>
+  <div class="sb-footer">
+    <button class="sb-refresh" onclick="refreshAll()">
+      <i class="ti ti-refresh"></i> Refresh Data
+    </button>
+  </div>
+</nav>
+
+<!-- ═══════════════ MAIN ═══════════════ -->
+<div class="main">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-icon" id="topbar-icon"><i class="ti ti-home-2"></i></div>
+    <span class="topbar-title" id="topbar-title">Home</span>
+    <div class="topbar-sep"></div>
+    <span class="topbar-crumb" id="topbar-crumb">Overview Dashboard</span>
+    <div class="topbar-right">
+      <span class="pill pill-green pill-live">Live</span>
+      <span class="pill pill-blue" id="date-pill">—</span>
+      <button class="topbar-btn" id="dark-toggle" onclick="toggleDark()" title="Toggle dark mode (D)">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z"></path></svg>
+      </button>
+      <button class="topbar-btn" onclick="window.print()" title="Print / Save as PDF">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 17h2a2 2 0 0 0 2 -2v-4a2 2 0 0 0 -2 -2h-14a2 2 0 0 0 -2 2v4a2 2 0 0 0 2 2h2"></path><path d="M17 9v-4a2 2 0 0 0 -2 -2h-6a2 2 0 0 0 -2 2v4"></path><path d="M7 13m0 2a2 2 0 0 1 2 -2h6a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2z"></path></svg>
+      </button>
+      <button class="topbar-btn" id="kbd-btn" onclick="showKbd()" title="Keyboard shortcuts (?)">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6m0 2a2 2 0 0 1 2 -2h16a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-16a2 2 0 0 1 -2 -2z"></path><path d="M6 10l0 .01"></path><path d="M10 10l0 .01"></path><path d="M14 10l0 .01"></path><path d="M18 10l0 .01"></path><path d="M6 14l0 .01"></path><path d="M18 14l0 .01"></path><path d="M10 14l4 0"></path></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Ticker -->
+  <div class="ticker-bar">
+    <span class="ticker-label">LIVE</span>
+    <div class="ticker-track">
+      <div class="ticker-content" id="ticker-content">
+        <span>📱 Non-SVN Summary · Loading…</span>
+        <span>🔄 SVN Status · Loading…</span>
+        <span>💻 TAB Summary · Loading…</span>
+        <span>📅 Future Date · Loading…</span>
+        <span>📊 Model Wise · Loading…</span>
+        <span>📱 Non-SVN Summary · Loading…</span>
+        <span>🔄 SVN Status · Loading…</span>
+        <span>💻 TAB Summary · Loading…</span>
+        <span>📅 Future Date · Loading…</span>
+        <span>📊 Model Wise · Loading…</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div class="body">
+
+    <!-- ════════════ HOME ════════════ -->
+    <div class="page active" id="page-home">
+      <div class="kpi-grid g4">
+        <div class="kpi"><div class="kpi-bar b-blue"></div>
+          <div class="kpi-label"><i class="ti ti-file-description"></i> Total ECNs (All)</div>
+          <div class="kpi-val" id="h-total">—</div>
+          <div class="kpi-delta d-neutral" id="h-total-sub">Loading data…</div>
+        </div>
+        <div class="kpi"><div class="kpi-bar b-teal"></div>
+          <div class="kpi-label"><i class="ti ti-circle-check"></i> Implemented / Closed</div>
+          <div class="kpi-val" id="h-closed">—</div>
+          <div class="kpi-delta d-up" id="h-rate">—</div>
+        </div>
+        <div class="kpi"><div class="kpi-bar b-amber"></div>
+          <div class="kpi-label"><i class="ti ti-clock-hour-4"></i> Open / Pending</div>
+          <div class="kpi-val" id="h-open">—</div>
+          <div class="kpi-delta d-down" id="h-open-sub">Active items</div>
+        </div>
+        <div class="kpi"><div class="kpi-bar b-purple"></div>
+          <div class="kpi-label"><i class="ti ti-device-tablet"></i> TAB Platform ECNs</div>
+          <div class="kpi-val" id="h-tab">—</div>
+          <div class="kpi-delta d-neutral">Tab total</div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <!-- Quick Nav -->
+        <div class="card">
+          <div class="card-hd"><div class="card-title"><i class="ti ti-apps"></i> Quick Navigation</div></div>
+          <div class="qnav-grid">
+            <div class="qtile" onclick="navigate('non-svn-summary')"><div class="q-icon qi-blue"><i class="ti ti-chart-line"></i></div><div><div class="q-name">Non-SVN Summary</div><div class="q-sub">Mobile · Close % tracking</div></div></div>
+            <div class="qtile" onclick="navigate('svn-summary')"><div class="q-icon qi-teal"><i class="ti ti-chart-bar"></i></div><div><div class="q-name">SVN Summary</div><div class="q-sub">Mobile · SVN close %</div></div></div>
+            <div class="qtile" onclick="navigate('non-svn-status')"><div class="q-icon qi-amber"><i class="ti ti-clipboard-list"></i></div><div><div class="q-name">Non-SVN Status</div><div class="q-sub">Mobile · Part detail</div></div></div>
+            <div class="qtile" onclick="navigate('svn-status')"><div class="q-icon qi-indigo"><i class="ti ti-clipboard-check"></i></div><div><div class="q-name">SVN Status</div><div class="q-sub">Mobile · SVN parts</div></div></div>
+            <div class="qtile" onclick="navigate('future-date')"><div class="q-icon qi-red"><i class="ti ti-calendar-due"></i></div><div><div class="q-name">Future Date</div><div class="q-sub">Mobile · Schedule</div></div></div>
+            <div class="qtile" onclick="navigate('tab-summary')"><div class="q-icon qi-purple"><i class="ti ti-device-tablet"></i></div><div><div class="q-name">TAB Summary</div><div class="q-sub">Tab platform</div></div></div>
+            <div class="qtile" onclick="navigate('model-wise')"><div class="q-icon qi-green"><i class="ti ti-device-mobile-stats"></i></div><div><div class="q-name">Model Wise</div><div class="q-sub">Mobile · Per model</div></div></div>
+            <div class="qtile" onclick="navigate('detailed')"><div class="q-icon qi-pink"><i class="ti ti-table"></i></div><div><div class="q-name">Detailed Records</div><div class="q-sub">All sources</div></div></div>
+          </div>
+        </div>
+
+        <!-- Donut + platform breakdown -->
+        <div class="card">
+          <div class="card-hd"><div class="card-title"><i class="ti ti-chart-donut-4"></i> Overall Status Distribution</div></div>
+          <div class="donut-wrap">
+            <div style="width:160px;height:160px;flex-shrink:0;position:relative">
+              <canvas id="h-donut"></canvas>
+              <div id="h-donut-center" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none">
+                <div style="font-size:20px;font-weight:700;color:var(--grey-900)" id="h-donut-pct">—</div>
+                <div style="font-size:10px;color:var(--grey-500)">closed</div>
+              </div>
+            </div>
+            <div class="donut-legend" id="h-donut-legend">
+              <div class="loading"><div class="spinner"></div></div>
+            </div>
+          </div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--grey-100)">
+            <div style="font-size:11px;font-weight:600;color:var(--grey-500);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">Closure Rate by Platform</div>
+            <div class="bar-list" id="h-platform-bars"><div class="loading" style="padding:10px"><div class="spinner"></div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Trend chart -->
+      <div class="card">
+        <div class="card-hd">
+          <div class="card-title"><i class="ti ti-chart-line"></i> Close % Trend — Non-SVN vs SVN vs TAB</div>
+          
+          <div style="display:flex; align-items:center; gap:12px;">
+            <select class="tbl-filter-select" id="h-year-filter">
+              <option value="all">All Years</option>
+            </select>
+
+            <div class="trend-tabs" id="h-trend-tabs">
+              <div class="trend-tab" data-p="daily">Daily</div>
+              <div class="trend-tab active" data-p="weekly">Weekly</div>
+              <div class="trend-tab" data-p="monthly">Monthly</div>
+              <div class="trend-tab" data-p="yearly">Yearly</div>
+            </div>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:400px"><canvas id="h-chart"></canvas></div>
+        <div class="chart-legend">
+          <div class="leg-item"><div class="leg-dot" style="background:#1E88E5"></div>Non-SVN Mobile</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#1D9E75;border-radius:50%"></div>SVN Mobile</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#EF9F27"></div>TAB Platform</div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ════════════ NON-SVN SUMMARY ════════════ -->
+    <div class="page" id="page-non-svn-summary">
+      <div class="sec-header">
+        <div><div class="sec-title"><i class="ti ti-chart-line"></i> NON SVN ECN Summary</div><div class="sec-sub">Mobile platform · Close percentage tracking per model</div></div>
+      </div>
+      <div class="kpi-grid g4">
+        <div class="kpi"><div class="kpi-bar b-blue"></div><div class="kpi-label"><i class="ti ti-devices"></i> Total Models</div><div class="kpi-val" id="ns-models">—</div><div class="kpi-delta d-neutral">Unique models</div></div>
+        <div class="kpi"><div class="kpi-bar b-teal"></div><div class="kpi-label"><i class="ti ti-circle-check"></i> Implemented</div><div class="kpi-val" id="ns-impl">—</div><div class="kpi-delta d-up">Closed items</div></div>
+        <div class="kpi"><div class="kpi-bar b-amber"></div><div class="kpi-label"><i class="ti ti-clock-hour-4"></i> Not Implemented</div><div class="kpi-val" id="ns-open">—</div><div class="kpi-delta d-down">Pending</div></div>
+        <div class="kpi"><div class="kpi-bar b-purple"></div><div class="kpi-label"><i class="ti ti-file-description"></i> Total Records</div><div class="kpi-val" id="ns-total">—</div><div class="kpi-delta d-neutral">All rows</div></div>
+      </div>
+      <div class="two-col">
+        <div class="card">
+          <div class="card-hd">
+            <div class="card-title"><i class="ti ti-chart-line"></i> Close % Trend</div>
+            <div class="trend-tabs" id="ns-trend-tabs">
+              <div class="trend-tab" data-p="daily">Daily</div><div class="trend-tab active" data-p="weekly">Weekly</div><div class="trend-tab" data-p="monthly">Monthly</div><div class="trend-tab" data-p="yearly">Yearly</div>
+            </div>
+          </div>
+          <div class="chart-wrap" style="height:230px"><canvas id="ns-chart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><div class="card-title"><i class="ti ti-chart-bar"></i> Top Models by Record Count</div></div>
+          <div class="h-bar-list" id="ns-model-bars"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="tbl-toolbar">
+          <div class="search-box"><i class="ti ti-search"></i><input type="text" placeholder="Search model, ECN, status…" id="ns-search" oninput="filterTable('ns')"></div>
+          <select class="tbl-filter-select" id="ns-status-filter" onchange="filterTable('ns')">
+            <option value="">All Status</option>
+            <option value="IMPLEMENTED">Implemented</option>
+            <option value="NOT">Not Implemented</option>
+          </select>
+          <span class="tbl-count" id="ns-count"></span>
+          <button class="dl-btn" onclick="downloadCSV('ns')"><i class="ti ti-download"></i> Export CSV</button>
+        </div>
+        <div class="tbl-wrap"><div id="ns-table"><div class="loading"><div class="spinner"></div><p>Loading data…</p></div></div></div>
+      </div>
+    </div>
+
+
+    <!-- ════════════ SVN SUMMARY ════════════ -->
+    <div class="page" id="page-svn-summary">
+      <div class="sec-header">
+        <div><div class="sec-title"><i class="ti ti-chart-bar"></i> SVN ECN Summary</div><div class="sec-sub">Mobile platform · SVN close percentage tracking</div></div>
+      </div>
+      <div class="kpi-grid g4">
+        <div class="kpi"><div class="kpi-bar b-teal"></div><div class="kpi-label"><i class="ti ti-devices"></i> Total Models</div><div class="kpi-val" id="sv-models">—</div><div class="kpi-delta d-neutral">Unique models</div></div>
+        <div class="kpi"><div class="kpi-bar b-blue"></div><div class="kpi-label"><i class="ti ti-circle-check"></i> Implemented</div><div class="kpi-val" id="sv-impl">—</div><div class="kpi-delta d-up">Closed items</div></div>
+        <div class="kpi"><div class="kpi-bar b-amber"></div><div class="kpi-label"><i class="ti ti-clock-hour-4"></i> Not Implemented</div><div class="kpi-val" id="sv-open">—</div><div class="kpi-delta d-down">Pending</div></div>
+        <div class="kpi"><div class="kpi-bar b-purple"></div><div class="kpi-label"><i class="ti ti-file-description"></i> Total Records</div><div class="kpi-val" id="sv-total">—</div><div class="kpi-delta d-neutral">All rows</div></div>
+      </div>
+      <div class="two-col">
+        <div class="card">
+          <div class="card-hd">
+            <div class="card-title"><i class="ti ti-chart-line"></i> Close % Trend</div>
+            <div class="trend-tabs" id="sv-trend-tabs">
+              <div class="trend-tab" data-p="daily">Daily</div><div class="trend-tab active" data-p="weekly">Weekly</div><div class="trend-tab" data-p="monthly">Monthly</div><div class="trend-tab" data-p="yearly">Yearly</div>
+            </div>
+          </div>
+          <div class="chart-wrap" style="height:230px"><canvas id="sv-chart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><div class="card-title"><i class="ti ti-chart-bar"></i> Top Models by Record Count</div></div>
+          <div class="h-bar-list" id="sv-model-bars"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="tbl-toolbar">
+          <div class="search-box"><i class="ti ti-search"></i><input type="text" placeholder="Search model, ECN…" id="sv-search" oninput="filterTable('sv')"></div>
+          <select class="tbl-filter-select" id="sv-status-filter" onchange="filterTable('sv')">
+            <option value="">All Status</option>
+            <option value="IMPLEMENTED">Implemented</option>
+            <option value="NOT">Not Implemented</option>
+          </select>
+          <span class="tbl-count" id="sv-count"></span>
+          <button class="dl-btn" onclick="downloadCSV('sv')"><i class="ti ti-download"></i> Export CSV</button>
+        </div>
+        <div class="tbl-wrap"><div id="sv-table"><div class="loading"><div class="spinner"></div><p>Loading data…</p></div></div></div>
+      </div>
+    </div>
+
+
+    <!-- ════════════ NON-SVN STATUS ════════════ -->
+    <div class="page" id="page-non-svn-status">
+      <div class="sec-header">
+        <div><div class="sec-title"><i class="ti ti-clipboard-list"></i> NON SVN ECN Status</div><div class="sec-sub">Mobile · Part-level Add / Delete / Change detail</div></div>
+      </div>
+      <div class="kpi-grid g5">
+        <div class="kpi"><div class="kpi-bar b-blue"></div><div class="kpi-label"><i class="ti ti-devices"></i> Models</div><div class="kpi-val" id="nss-models">—</div><div class="kpi-delta d-neutral">Unique</div></div>
+        <div class="kpi"><div class="kpi-bar b-teal"></div><div class="kpi-label"><i class="ti ti-plus"></i> Add Parts</div><div class="kpi-val" id="nss-add">—</div><div class="kpi-delta d-up">Added</div></div>
+        <div class="kpi"><div class="kpi-bar b-red"></div><div class="kpi-label"><i class="ti ti-minus"></i> Delete Parts</div><div class="kpi-val" id="nss-del">—</div><div class="kpi-delta d-down">Removed</div></div>
+        <div class="kpi"><div class="kpi-bar b-amber"></div><div class="kpi-label"><i class="ti ti-refresh"></i> Change Parts</div><div class="kpi-val" id="nss-chg">—</div><div class="kpi-delta d-neutral">Changed</div></div>
+        <div class="kpi"><div class="kpi-bar b-purple"></div><div class="kpi-label"><i class="ti ti-file-description"></i> Unique ECNs</div><div class="kpi-val" id="nss-ecn">—</div><div class="kpi-delta d-neutral">ECN count</div></div>
+      </div>
+      <div class="two-col">
+        <div class="card">
+          <div class="card-hd">
+            <div class="card-title"><i class="ti ti-chart-line"></i> ECN Trend</div>
+            <div class="trend-tabs" id="nss-trend-tabs">
+              <div class="trend-tab" data-p="daily">Daily</div><div class="trend-tab active" data-p="weekly">Weekly</div><div class="trend-tab" data-p="monthly">Monthly</div><div class="trend-tab" data-p="yearly">Yearly</div>
+            </div>
+          </div>
+          <div class="chart-wrap" style="height:220px"><canvas id="nss-chart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><div class="card-title"><i class="ti ti-chart-donut"></i> Change Type Breakdown</div></div>
+          <div style="display:flex;align-items:center;gap:16px;height:200px">
+            <div style="flex:1;height:180px"><canvas id="nss-donut"></canvas></div>
+            <div id="nss-type-legend" style="flex:1"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="tbl-toolbar">
+          <div class="search-box"><i class="ti ti-search"></i><input type="text" placeholder="Search model, part, ECN…" id="nss-search" oninput="filterTable('nss')"></div>
+          <select class="tbl-filter-select" id="nss-type-filter" onchange="filterTable('nss')">
+            <option value="">All Change Types</option>
+            <option value="ADD">Add</option>
+            <option value="DELETE">Delete</option>
+            <option value="CHANGE">Change</option>
+          </select>
+          <span class="tbl-count" id="nss-count"></span>
+          <button class="dl-btn" onclick="downloadCSV('nss')"><i class="ti ti-download"></i> Export CSV</button>
+        </div>
+        <div class="tbl-wrap"><div id="nss-table"><div class="loading"><div class="spinner"></div><p>Loading data…</p></div></div></div>
+      </div>
+    </div>
+
+
+    <!-- ════════════ SVN STATUS ════════════ -->
+    <div class="page" id="page-svn-status">
+      <div class="sec-header">
+        <div><div class="sec-title"><i class="ti ti-clipboard-check"></i> SVN ECN Status</div><div class="sec-sub">Mobile · SVN part-level changes</div></div>
+      </div>
+      <div class="kpi-grid g4">
+        <div class="kpi"><div class="kpi-bar b-blue"></div><div class="kpi-label"><i class="ti ti-devices"></i> Models</div><div class="kpi-val" id="svs-models">—</div><div class="kpi-delta d-neutral">Unique</div></div>
+        <div class="kpi"><div class="kpi-bar b-teal"></div><div class="kpi-label"><i class="ti ti-plus"></i> Add Parts</div><div class="kpi-val" id="svs-add">—</div><div class="kpi-delta d-up">Added</div></div>
+        <div class="kpi"><div class="kpi-bar b-red"></div><div class="kpi-label"><i class="ti ti-minus"></i> Delete Parts</div><div class="kpi-val" id="svs-del">—</div><div class="kpi-delta d-down">Removed</div></div>
+        <div class="kpi"><div class="kpi-bar b-purple"></div><div class="kpi-label"><i class="ti ti-file-description"></i> Unique ECNs</div><div class="kpi-val" id="svs-ecn">—</div><div class="kpi-delta d-neutral">ECN count</div></div>
+      </div>
+      <div class="card">
+        <div class="card-hd">
+          <div class="card-title"><i class="ti ti-chart-line"></i> ECN Trend</div>
+          <div class="trend-tabs" id="svs-trend-tabs">
+            <div class="trend-tab" data-p="daily">Daily</div><div class="trend-tab active" data-p="weekly">Weekly</div><div class="trend-tab" data-p="monthly">Monthly</div><div class="trend-tab" data-p="yearly">Yearly</div>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:230px"><canvas id="svs-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="tbl-toolbar">
+          <div class="search-box"><i class="ti ti-search"></i><input type="text" placeholder="Search…" id="svs-search" oninput="filterTable('svs')"></div>
+          <select class="tbl-filter-select" id="svs-type-filter" onchange="filterTable('svs')">
+            <option value="">All Change Types</option>
+            <option value="ADD">Add</option>
+            <option value="DELETE">Delete</option>
+            <option value="CHANGE">Change</option>
+          </select>
+          <span class="tbl-count" id="svs-count"></span>
+          <button class="dl-btn" onclick="downloadCSV('svs')"><i class="ti ti-download"></i> Export CSV</button>
+        </div>
+        <div class="tbl-wrap"><div id="svs-table"><div class="loading"><div class="spinner"></div><p>Loading data…</p></div></div></div>
+      </div>
+    </div>
+
+
+    <!-- ════════════ FUTURE DATE ════════════ -->
+    <div class="page" id="page-future-date">
+      <div class="sec-header">
+        <div><div class="sec-title"><i class="ti ti-calendar-due"></i> Future Date — Mobile</div><div class="sec-sub">Upcoming ECN implementation schedule</div></div>
+      </div>
+      <div class="kpi-grid g3">
+        <div class="kpi"><div class="kpi-bar b-blue"></div><div class="kpi-label"><i class="ti ti-devices"></i> Total Models</div><div class="kpi-val" id="fd-models">—</div><div class="kpi-delta d-neutral">Unique models</div></div>
+        <div class="kpi"><div class="kpi-bar b-amber"></div><div class="kpi-label"><i class="ti ti-clock-hour-4"></i> Open ECNs</div><div class="kpi-val" id="fd-open">—</div><div class="kpi-delta d-down">Awaiting</div></div>
+        <div class="kpi"><div class="kpi-bar b-purple"></div><div class="kpi-label"><i class="ti ti-file-description"></i> Customer ECNs</div><div class="kpi-val" id="fd-ecn">—</div><div class="kpi-delta d-neutral">Unique ECNs</div></div>
+      </div>
+      <div class="card">
+        <div class="tbl-toolbar">
+          <div class="search-box"><i class="ti ti-search"></i><input type="text" placeholder="Search model, ECN, remarks…" id="fd-search" oninput="filterTable('fd')"></div>
+          <span class="tbl-count" id="fd-count"></span>
+          <button class="dl-btn" onclick="downloadCSV('fd')"><i class="ti ti-download"></i> Export CSV</button>
+        </div>
+        <div class="tbl-wrap"><div id="fd-table"><div class="loading"><div class="spinner"></div><p>Loading data…</p></div></div></div>
+      </div>
+    </div>
+
+
+    <!-- ════════════ MODEL WISE ════════════ -->
+    <div class="page" id="page-model-wise">
+      <div class="sec-header">
+        <div><div class="sec-title"><i class="ti ti-device-mobile-stats"></i> Model Wise</div><div class="sec-sub">Mobile · Per-model ECN breakdown and statistics</div></div>
+      </div>
+      <div class="kpi-grid g3" id="mw-kpi">
+        <div class="kpi"><div class="kpi-bar b-blue"></div><div class="kpi-label"><i class="ti ti-devices"></i> Total Models</div><div class="kpi-val" id="mw-models">—</div><div class="kpi-delta d-neutral">Unique</div></div>
+        <div class="kpi"><div class="kpi-bar b-teal"></div><div class="kpi-label"><i class="ti ti-file-description"></i> Total Records</div><div class="kpi-val" id="mw-total">—</div><div class="kpi-delta d-neutral">All rows</div></div>
+        <div class="kpi"><div class="kpi-bar b-amber"></div><div class="kpi-label"><i class="ti ti-list"></i> Columns</div><div class="kpi-val" id="mw-cols">—</div><div class="kpi-delta d-neutral">Data fields</div></div>
+      </div>
+      <div class="card">
+        <div class="card-hd"><div class="card-title"><i class="ti ti-chart-bar"></i> Model ECN Count (Top 20)</div></div>
+        <div class="chart-wrap" style="height:260px"><canvas id="mw-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="tbl-toolbar">
+          <div class="search-box"><i class="ti ti-search"></i><input type="text" placeholder="Search model…" id="mw-search" oninput="filterTable('mw')"></div>
+          <span class="tbl-count" id="mw-count"></span>
+          <button class="dl-btn" onclick="downloadCSV('mw')"><i class="ti ti-download"></i> Export CSV</button>
+        </div>
+        <div class="tbl-wrap"><div id="mw-table"><div class="loading"><div class="spinner"></div><p>Loading data…</p></div></div></div>
+      </div>
+    </div>
+
+
+    <!-- ════════════ OVERALL (Mobile) ════════════ -->
+    <div class="page" id="page-overall">
+      <div class="sec-header">
+        <div><div class="sec-title"><i class="ti ti-layout-dashboard"></i> Overall — Mobile</div><div class="sec-sub">Complete mobile ECN data — all columns</div></div>
+      </div>
+      <div class="kpi-grid g3">
+        <div class="kpi"><div class="kpi-bar b-blue"></div><div class="kpi-label"><i class="ti ti-file-description"></i> Total Records</div><div class="kpi-val" id="ov-total">—</div><div class="kpi-delta d-neutral">All rows</div></div>
+        <div class="kpi"><div class="kpi-bar b-teal"></div><div class="kpi-label"><i class="ti ti-devices"></i> Unique Models</div><div class="kpi-val" id="ov-models">—</div><div class="kpi-delta d-neutral">Models</div></div>
+        <div class="kpi"><div class="kpi-bar b-purple"></div><div class="kpi-label"><i class="ti ti-list"></i> Data Columns</div><div class="kpi-val" id="ov-cols">—</div><div class="kpi-delta d-neutral">Fields</div></div>
+      </div>
+      <div class="card">
+        <div class="tbl-toolbar">
+          <div class="search-box"><i class="ti ti-search"></i><input type="text" placeholder="Search all fields…" id="ov-search" oninput="filterTable('ov')"></div>
+          <span class="tbl-count" id="ov-count"></span>
+          <button class="dl-btn" onclick="downloadCSV('ov')"><i class="ti ti-download"></i> Export CSV</button>
+        </div>
+        <div class="tbl-wrap"><div id="ov-table"><div class="loading"><div class="spinner"></div><p>Loading data…</p></div></div></div>
+      </div>
+    </div>
+
+
+    <!-- ════════════ TAB OVERALL ════════════ -->
+    <div class="page" id="page-tab-overall">
+      <div class="sec-header">
+        <div><div class="sec-title"><i class="ti ti-device-tablet"></i> TAB Overall</div><div class="sec-sub">Tab platform · complete data view</div></div>
+      </div>
+      <div class="kpi-grid g3">
+        <div class="kpi"><div class="kpi-bar b-purple"></div><div class="kpi-label"><i class="ti ti-file-description"></i> Total Records</div><div class="kpi-val" id="to-total">—</div><div class="kpi-delta d-neutral">All rows</div></div>
+        <div class="kpi"><div class="kpi-bar b-blue"></div><div class="kpi-label"><i class="ti ti-devices"></i> Unique Models</div><div class="kpi-val" id="to-models">—</div><div class="kpi-delta d-neutral">Models</div></div>
+        <div class="kpi"><div class="kpi-bar b-teal"></div><div class="kpi-label"><i class="ti ti-list"></i> Data Columns</div><div class="kpi-val" id="to-cols">—</div><div class="kpi-delta d-neutral">Fields</div></div>
+      </div>
+      <div class="card">
+        <div class="tbl-toolbar">
+          <div class="search-box"><i class="ti ti-search"></i><input type="text" placeholder="Search all fields…" id="to-search" oninput="filterTable('to')"></div>
+          <span class="tbl-count" id="to-count"></span>
+          <button class="dl-btn" onclick="downloadCSV('to')"><i class="ti ti-download"></i> Export CSV</button>
+        </div>
+        <div class="tbl-wrap"><div id="to-table"><div class="loading"><div class="spinner"></div><p>Loading data…</p></div></div></div>
+      </div>
+    </div>
+
+
+    <!-- ════════════ TAB SUMMARY ════════════ -->
+    <div class="page" id="page-tab-summary">
+      <div class="sec-header">
+        <div><div class="sec-title"><i class="ti ti-chart-line"></i> TAB ECN Summary</div><div class="sec-sub">Tab platform · close percentage tracking</div></div>
+      </div>
+      <div class="kpi-grid g4">
+        <div class="kpi"><div class="kpi-bar b-purple"></div><div class="kpi-label"><i class="ti ti-devices"></i> Total Models</div><div class="kpi-val" id="ts-models">—</div><div class="kpi-delta d-neutral">Unique</div></div>
+        <div class="kpi"><div class="kpi-bar b-teal"></div><div class="kpi-label"><i class="ti ti-circle-check"></i> Implemented</div><div class="kpi-val" id="ts-impl">—</div><div class="kpi-delta d-up">Closed</div></div>
+        <div class="kpi"><div class="kpi-bar b-amber"></div><div class="kpi-label"><i class="ti ti-clock-hour-4"></i> Not Implemented</div><div class="kpi-val" id="ts-open">—</div><div class="kpi-delta d-down">Pending</div></div>
+        <div class="kpi"><div class="kpi-bar b-blue"></div><div class="kpi-label"><i class="ti ti-file-description"></i> Total Records</div><div class="kpi-val" id="ts-total">—</div><div class="kpi-delta d-neutral">All rows</div></div>
+      </div>
+      <div class="two-col">
+        <div class="card">
+          <div class="card-hd">
+            <div class="card-title"><i class="ti ti-chart-line"></i> Close % Trend</div>
+            <div class="trend-tabs" id="ts-trend-tabs">
+              <div class="trend-tab" data-p="daily">Daily</div><div class="trend-tab active" data-p="weekly">Weekly</div><div class="trend-tab" data-p="monthly">Monthly</div><div class="trend-tab" data-p="yearly">Yearly</div>
+            </div>
+          </div>
+          <div class="chart-wrap" style="height:230px"><canvas id="ts-chart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><div class="card-title"><i class="ti ti-chart-bar"></i> Top Models by Count</div></div>
+          <div class="h-bar-list" id="ts-model-bars"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="tbl-toolbar">
+          <div class="search-box"><i class="ti ti-search"></i><input type="text" placeholder="Search…" id="ts-search" oninput="filterTable('ts')"></div>
+          <select class="tbl-filter-select" id="ts-status-filter" onchange="filterTable('ts')">
+            <option value="">All Status</option>
+            <option value="IMPLEMENTED">Implemented</option>
+            <option value="NOT">Not Implemented</option>
+          </select>
+          <span class="tbl-count" id="ts-count"></span>
+          <button class="dl-btn" onclick="downloadCSV('ts')"><i class="ti ti-download"></i> Export CSV</button>
+        </div>
+        <div class="tbl-wrap"><div id="ts-table"><div class="loading"><div class="spinner"></div><p>Loading data…</p></div></div></div>
+      </div>
+    </div>
+
+
+    <!-- ════════════ TAB STATUS ════════════ -->
+    <div class="page" id="page-tab-status">
+      <div class="sec-header">
+        <div><div class="sec-title"><i class="ti ti-clipboard-list"></i> TAB ECN Status</div><div class="sec-sub">Tab platform · part-level change detail</div></div>
+      </div>
+      <div class="kpi-grid g4">
+        <div class="kpi"><div class="kpi-bar b-purple"></div><div class="kpi-label"><i class="ti ti-devices"></i> Models</div><div class="kpi-val" id="tss-models">—</div><div class="kpi-delta d-neutral">Unique</div></div>
+        <div class="kpi"><div class="kpi-bar b-teal"></div><div class="kpi-label"><i class="ti ti-plus"></i> Add Parts</div><div class="kpi-val" id="tss-add">—</div><div class="kpi-delta d-up">Added</div></div>
+        <div class="kpi"><div class="kpi-bar b-red"></div><div class="kpi-label"><i class="ti ti-minus"></i> Delete Parts</div><div class="kpi-val" id="tss-del">—</div><div class="kpi-delta d-down">Removed</div></div>
+        <div class="kpi"><div class="kpi-bar b-blue"></div><div class="kpi-label"><i class="ti ti-file-description"></i> Unique ECNs</div><div class="kpi-val" id="tss-ecn">—</div><div class="kpi-delta d-neutral">ECN count</div></div>
+      </div>
+      <div class="card">
+        <div class="card-hd">
+          <div class="card-title"><i class="ti ti-chart-line"></i> ECN Trend</div>
+          <div class="trend-tabs" id="tss-trend-tabs">
+            <div class="trend-tab" data-p="daily">Daily</div><div class="trend-tab active" data-p="weekly">Weekly</div><div class="trend-tab" data-p="monthly">Monthly</div><div class="trend-tab" data-p="yearly">Yearly</div>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:230px"><canvas id="tss-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="tbl-toolbar">
+          <div class="search-box"><i class="ti ti-search"></i><input type="text" placeholder="Search…" id="tss-search" oninput="filterTable('tss')"></div>
+          <select class="tbl-filter-select" id="tss-type-filter" onchange="filterTable('tss')">
+            <option value="">All Change Types</option>
+            <option value="ADD">Add</option>
+            <option value="DELETE">Delete</option>
+          </select>
+          <span class="tbl-count" id="tss-count"></span>
+          <button class="dl-btn" onclick="downloadCSV('tss')"><i class="ti ti-download"></i> Export CSV</button>
+        </div>
+        <div class="tbl-wrap"><div id="tss-table"><div class="loading"><div class="spinner"></div><p>Loading data…</p></div></div></div>
+      </div>
+    </div>
+
+
+    <!-- ════════════ TAB FUTURE DATE ════════════ -->
+    <div class="page" id="page-tab-future">
+      <div class="sec-header">
+        <div><div class="sec-title"><i class="ti ti-calendar-due"></i> TAB Future Date</div><div class="sec-sub">Tab platform · upcoming implementation schedule</div></div>
+      </div>
+      <div class="kpi-grid g3">
+        <div class="kpi"><div class="kpi-bar b-purple"></div><div class="kpi-label"><i class="ti ti-devices"></i> Total Models</div><div class="kpi-val" id="tf-models">—</div><div class="kpi-delta d-neutral">Unique</div></div>
+        <div class="kpi"><div class="kpi-bar b-amber"></div><div class="kpi-label"><i class="ti ti-clock-hour-4"></i> Open ECNs</div><div class="kpi-val" id="tf-open">—</div><div class="kpi-delta d-down">Awaiting</div></div>
+        <div class="kpi"><div class="kpi-bar b-blue"></div><div class="kpi-label"><i class="ti ti-file-description"></i> Total Records</div><div class="kpi-val" id="tf-total">—</div><div class="kpi-delta d-neutral">All rows</div></div>
+      </div>
+      <div class="card">
+        <div class="tbl-toolbar">
+          <div class="search-box"><i class="ti ti-search"></i><input type="text" placeholder="Search…" id="tf-search" oninput="filterTable('tf')"></div>
+          <span class="tbl-count" id="tf-count"></span>
+          <button class="dl-btn" onclick="downloadCSV('tf')"><i class="ti ti-download"></i> Export CSV</button>
+        </div>
+        <div class="tbl-wrap"><div id="tf-table"><div class="loading"><div class="spinner"></div><p>Loading data…</p></div></div></div>
+      </div>
+    </div>
+
+
+    <!-- ════════════ DETAILED RECORDS ════════════ -->
+    <div class="page" id="page-detailed">
+
+      <!-- ── Top header row: title + Year + View filters ── -->
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:12px;border-bottom:1px solid var(--grey-200)">
+        <div>
+          <div class="sec-title"><i class="ti ti-table"></i> ECN Implementation Dashboard</div>
+          <div class="sec-sub">Weekly summary · Ontime rate trend · Detailed record drill-down</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          <select class="tbl-filter-select" id="det-year" onchange="renderDetailed()" style="min-width:110px">
+            <option value="all">All Years</option>
+          </select>
+          <select class="tbl-filter-select" id="det-view" onchange="renderDetailed()" style="min-width:210px">
+            <option value="all">All Combined (SVN + Non-SVN)</option>
+            <option value="Non-SVN">Non-SVN Only</option>
+            <option value="SVN">SVN Only</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- ── KPI cards ── -->
+      <div class="kpi-grid g4">
+        <div class="kpi"><div class="kpi-bar b-blue"></div>
+          <div class="kpi-label"><i class="ti ti-inbox"></i> Total ECNs Received</div>
+          <div class="kpi-val" id="det-received">—</div>
+          <div class="kpi-delta d-neutral" id="det-ns-sub">—</div>
+        </div>
+        <div class="kpi"><div class="kpi-bar b-teal"></div>
+          <div class="kpi-label"><i class="ti ti-circle-check"></i> Total Implemented</div>
+          <div class="kpi-val" id="det-implemented">—</div>
+          <div class="kpi-delta d-up" id="det-sv-sub">—</div>
+        </div>
+        <div class="kpi"><div class="kpi-bar b-purple"></div>
+          <div class="kpi-label"><i class="ti ti-clock-bolt"></i> Implemented ≤ 48 Hrs</div>
+          <div class="kpi-val" id="det-on-time">—</div>
+          <div class="kpi-delta d-up" id="det-tab-sub">—</div>
+        </div>
+        <div class="kpi"><div class="kpi-bar b-amber"></div>
+          <div class="kpi-label"><i class="ti ti-chart-line"></i> Overall Ontime Rate</div>
+          <div class="kpi-val" id="det-rate">—</div>
+          <div class="kpi-delta d-neutral" id="det-total-sub">Calculated live</div>
+        </div>
+      </div>
+
+      <!-- ── Weekly Summary Table ── -->
+      <div class="card" style="padding:14px 16px">
+        <div class="card-hd" style="margin-bottom:10px">
+          <div class="card-title"><i class="ti ti-calendar-week"></i> <span id="det-weekly-title">Weekly Implementation Summary</span></div>
+        </div>
+        <div style="overflow-x:auto;overflow-y:auto;max-height:360px;border-radius:6px;border:1px solid var(--grey-200)">
+          <div id="det-weekly-table"><div class="loading"><div class="spinner"></div><p>Loading weekly data…</p></div></div>
+        </div>
+      </div>
+
+      <!-- ── Ontime Trend Chart ── -->
+      <div class="card">
+        <div class="card-hd">
+          <div class="card-title"><i class="ti ti-chart-line"></i> Ontime Implementation Trend</div>
+        </div>
+        <div class="chart-wrap" style="height:300px"><canvas id="det-trend-chart"></canvas></div>
+      </div>
+
+      <!-- ── Detailed ECN Records table with tabs ── -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:10px">
+          <div class="card-title" style="margin:0"><i class="ti ti-search"></i> Detailed ECN Records</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <div class="search-box" style="max-width:240px">
+              <i class="ti ti-search"></i>
+              <input type="text" placeholder="Search ECN No…" id="det-ecn-search" oninput="filterDetailed()">
+            </div>
+            <select class="tbl-filter-select" id="det-week-filter" onchange="filterDetailed()" style="min-width:170px">
+              <option value="">Showing all weeks…</option>
+            </select>
+            <button class="dl-btn" onclick="downloadCSV('det')"><i class="ti ti-download"></i> Export CSV</button>
+          </div>
+        </div>
+
+        <!-- Tabs: Within 48 hrs / After 48 hrs -->
+        <div style="display:flex;border-bottom:2px solid var(--grey-200);margin-bottom:10px;gap:0">
+          <div id="det-tab-within" onclick="switchDetTab('within')" style="padding:7px 18px;font-size:12px;font-weight:600;cursor:pointer;border-bottom:2px solid var(--teal-500);margin-bottom:-2px;color:var(--teal-700);display:flex;align-items:center;gap:6px">
+            <i class="ti ti-circle-check" style="font-size:14px"></i> Implemented Within 48 Hours <span id="det-within-cnt" style="font-size:11px;background:var(--teal-100);color:var(--teal-700);padding:1px 7px;border-radius:10px;margin-left:4px"></span>
+          </div>
+          <div id="det-tab-after" onclick="switchDetTab('after')" style="padding:7px 18px;font-size:12px;font-weight:600;cursor:pointer;color:var(--grey-500);border-bottom:2px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:6px">
+            <i class="ti ti-alert-triangle" style="font-size:14px"></i> Implemented After 48 Hours <span id="det-after-cnt" style="font-size:11px;background:var(--amber-100);color:var(--amber-700);padding:1px 7px;border-radius:10px;margin-left:4px"></span>
+          </div>
+        </div>
+
+        <div class="tbl-wrap"><div id="det-table"><div class="loading"><div class="spinner"></div><p>Loading data…</p></div></div></div>
+        <div id="det-pager" style="display:flex;align-items:center;gap:6px;margin-top:10px;justify-content:flex-end;flex-wrap:wrap"></div>
+      </div>
+    </div>
+
+  </div><!-- /body -->
+</div><!-- /main -->
+</div><!-- /shell -->
+
+<script>
+/* ═══════════════════════════════════════════════
+   SHEET URLS  (GIDs from your source code)
+═══════════════════════════════════════════════ */
+const MOBILE_BASE = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS_b8--m6NpOSqwskb87KPOtZW-FTneXBAzl_UGr7APzgEkhaDF5VNFurRZhFxmhg/pub?single=true&output=csv&gid=';
+const TAB_BASE    = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTA8RaTZV-mD76oiffjSuhOx-0Egxush5B7CyYr8nS8AAhI96tyi8AFpF5hV_uSvw/pub?single=true&output=csv&gid=';
+const URLS = {
+  nsSum:    MOBILE_BASE + '1321669108',
+  svSum:    MOBILE_BASE + '1410878875',
+  nsStatus: MOBILE_BASE + '28829336',
+  svStatus: MOBILE_BASE + '1278910407',
+  futDate:  MOBILE_BASE + '827296363',
+  modelW:   MOBILE_BASE + '1238856472',
+  overall:  MOBILE_BASE + '1689504300',
+  tabOv:    TAB_BASE    + '249067076',
+  tabSum:   TAB_BASE    + '970326464',
+  tabStat:  TAB_BASE    + '450360842',
+  tabFut:   TAB_BASE    + '1037340646',
+};
+
+/* ═══════════════════════════════════════════════
+   CACHE & STATE
+═══════════════════════════════════════════════ */
+const CACHE  = {};
+const TDATA  = {};
+const CHARTS = {};
+const loaded = new Set();
+let curPage  = 'home';
+
+/* ═══════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════ */
+function toast(msg, icon='ti-circle-check') {
+  const el = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  el.querySelector('i').className = 'ti ' + icon;
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 2800);
+}
+
+/* ═══════════════════════════════════════════════
+   GLOBAL FILTER LOGIC (Model + Date)
+═══════════════════════════════════════════════ */
+let globalDebounceTimer;
+
+// Delays the filter slightly while typing the model name to prevent lag
+function debouncedGlobalFilter() {
+  clearTimeout(globalDebounceTimer);
+  globalDebounceTimer = setTimeout(() => {
+    applyGlobalFilter();
+  }, 400); 
+}
+
+function applyGlobalFilter() {
+  // If a page is active, re-run its loader to update charts, KPIs, and tables
+  if (PAGE_LOADERS[curPage]) {
+    toast('Applying global filters...', 'ti-filter');
+    PAGE_LOADERS[curPage]().catch(e => console.error(e));
+  }
+}
+
+function clearGlobalFilter() {
+  document.getElementById('global-model').value = '';
+  document.getElementById('global-start').value = '';
+  document.getElementById('global-end').value = '';
+  applyGlobalFilter();
+}
+
+function getGlobalFilteredData(rawData) {
+  const gModel = (document.getElementById('global-model')?.value || '').toLowerCase().trim();
+  const dStart = document.getElementById('global-start')?.value;
+  const dEnd = document.getElementById('global-end')?.value;
+  
+  // If all filter inputs are completely empty, return everything instantly
+  if (!gModel && !dStart && !dEnd) return rawData; 
+
+  const startTimestamp = dStart ? new Date(dStart).getTime() : -Infinity;
+  const endTimestamp = dEnd ? new Date(dEnd).getTime() + 86399999 : Infinity; 
+
+  return rawData.filter(r => {
+    
+    // 1. Model Check (Checks multiple column names to support all sheets)
+    let modelMatch = true;
+    if (gModel) {
+      const rowModel = (r['MODEL'] || r['Model'] || r['Model Name'] || '').toLowerCase();
+      modelMatch = rowModel.includes(gModel);
+    }
+
+    // 2. Date Check (Checks multiple column names to support all sheets)
+    let dateMatch = true;
+    if (dStart || dEnd) {
+      const rawDate = r['DATE'] || r['Date'] || r['Receiving Date'] || r['RECEIVING DATE'];
+      const rowDateObj = parseDate(rawDate);
+      
+      if (!rowDateObj || isNaN(rowDateObj)) {
+        dateMatch = false; // Hide rows with no valid dates if date filter is active
+      } else {
+        const rowTime = rowDateObj.getTime();
+        dateMatch = (rowTime >= startTimestamp && rowTime <= endTimestamp);
+      }
+    }
+
+    // Keep the row only if it passes BOTH the model filter AND the date filter
+    return modelMatch && dateMatch;
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   CSV LOADER (Overwritten to apply global filter)
+═══════════════════════════════════════════════ */
+function loadCSV(key) {
+  return new Promise((res, rej) => {
+    // Helper to filter data right before passing it to the page
+    const process = (data) => res(getGlobalFilteredData(data));
+    
+    // If we already downloaded the raw data, just filter it and return it instantly
+    if (CACHE[key]) return process(CACHE[key]);
+    
+    // Otherwise, download it, save the raw data to CACHE, then filter it
+    Papa.parse(URLS[key], {
+      download: true, header: true, skipEmptyLines: true,
+      complete: r => { CACHE[key] = r.data; process(r.data); },
+      error:    e => rej(e)
+    });
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   UTILS
+═══════════════════════════════════════════════ */
+const fmt = n => (n==null||isNaN(n)) ? '—' : Number(n).toLocaleString();
+
+function parseDate(str) {
+  if (!str) return null;
+  str = str.trim();
+  let m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (m) { let y=m[3].length===2?'20'+m[3]:m[3]; return new Date(`${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`); }
+  m = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  if (m) return new Date(str);
+  const d = new Date(str);
+  return isNaN(d) ? null : d;
+}
+
+function isImpl(v) { 
+  const val = (v || '').toString().toLowerCase().trim();
+  // Ignore completely blank cells
+  if (!val) return false;
+  // Prevent "Not Implemented" or "Not Closed" from being accidentally counted as true
+  if (val.includes('not implement') || val.includes('not close')) return false;
+  // The Python Match: Check for either "close" or "implement"
+  return /close|implement/i.test(val); 
+}
+function isClose(v){ return /close/i.test(v||''); }
+
+function periodKey(d, p) {
+  if (!d||isNaN(d)) return null;
+  if (p==='yearly')  return { label: ''+d.getFullYear(), sort: d.getFullYear() };
+  if (p==='monthly') { const l=d.toLocaleDateString('en-IN',{month:'short',year:'numeric'}); return { label:l, sort:d.getFullYear()*100+d.getMonth() }; }
+  if (p==='daily')   { const l=d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); return { label:l, sort:d.getFullYear()*10000+d.getMonth()*100+d.getDate() }; }
+  // weekly
+  const jan1=new Date(d.getFullYear(),0,1);
+  const wk=Math.ceil(((d-jan1)/86400000+jan1.getDay()+1)/7);
+  return { label:`${d.getFullYear()}-W${String(wk).padStart(2,'0')}`, sort:d.getFullYear()*100+wk };
+}
+
+function groupByPeriod(rows, dateField, p) {
+  const map=new Map();
+  rows.forEach(r => {
+    const d=parseDate(r[dateField]);
+    const k=periodKey(d,p);
+    if (!k) return;
+    if (!map.has(k.sort)) map.set(k.sort,{label:k.label,sort:k.sort,rows:[]});
+    map.get(k.sort).rows.push(r);
+  });
+  return [...map.values()].sort((a,b)=>a.sort-b.sort);
+}
+
+function closePctTrend(rows, dateField, fn, p) {
+  const g=groupByPeriod(rows,dateField,p);
+  return { labels:g.map(x=>x.label), data:g.map(x=>{ const t=x.rows.length,c=x.rows.filter(fn).length; return t?+(c/t*100).toFixed(1):0; }) };
+}
+
+function countTrend(rows, dateField, ecnField, p) {
+  const g=groupByPeriod(rows,dateField,p);
+  return { labels:g.map(x=>x.label), data:g.map(x=>new Set(x.rows.map(r=>r[ecnField]||'').filter(Boolean)).size) };
+}
+
+/* ═══════════════════════════════════════════════
+   CHARTS
+═══════════════════════════════════════════════ */
+const COLORS={blue:'#1E88E5',teal:'#1D9E75',amber:'#EF9F27',red:'#DC2626',purple:'#7C3AED',pink:'#DB2777',green:'#16A34A',indigo:'#4338CA'};
+const PALETTE=Object.values(COLORS);
+
+function makeLine(id, labels, datasets, opts={}) {
+  const c=document.getElementById(id); if(!c)return;
+  if(CHARTS[id]) CHARTS[id].destroy();
+  CHARTS[id]=new Chart(c,{
+    type:'line', data:{labels,datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:{duration:700},
+      plugins:{legend:{display:opts.legend||false,labels:{font:{size:11},color:'#64748B',boxWidth:12}},tooltip:{mode:'index',intersect:false,backgroundColor:'#1A1F2B',titleFont:{size:11},bodyFont:{size:11}}},
+      scales:{
+        x:{grid:{color:'rgba(0,0,0,.04)'},ticks:{color:'#94A3B8',font:{size:10},maxRotation:45,maxTicksLimit:14}},
+        y:{grid:{color:'rgba(0,0,0,.04)'},ticks:{color:'#94A3B8',font:{size:10},callback:v=>opts.pct?v+'%':v},min:opts.min,max:opts.max}
+      }
+    }
+  });
+}
+
+function makeBar(id, labels, data, color=COLORS.blue) {
+  const c=document.getElementById(id); if(!c)return;
+  if(CHARTS[id]) CHARTS[id].destroy();
+  CHARTS[id]=new Chart(c,{
+    type:'bar', data:{labels,datasets:[{label:'Count',data,backgroundColor:color+'CC',borderColor:color,borderWidth:1.5,borderRadius:4}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,animation:{duration:700},
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#1A1F2B',titleFont:{size:11},bodyFont:{size:11}}},
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#94A3B8',font:{size:10},maxRotation:45}},
+        y:{grid:{color:'rgba(0,0,0,.04)'},ticks:{color:'#94A3B8',font:{size:10}}}
+      }
+    }
+  });
+}
+
+function makeDonut(id, labels, data, colors) {
+  const c=document.getElementById(id); if(!c)return;
+  if(CHARTS[id]) CHARTS[id].destroy();
+  CHARTS[id]=new Chart(c,{
+    type:'doughnut', data:{labels,datasets:[{data,backgroundColor:colors,borderWidth:2,borderColor:'#fff',hoverOffset:4}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:{duration:700},cutout:'68%',plugins:{legend:{display:false},tooltip:{backgroundColor:'#1A1F2B',titleFont:{size:11},bodyFont:{size:11}}}}
+  });
+}
+
+function lineDs(label, data, color, dash=[], pointStyle='circle', pointRadius=3) {
+  return {
+    label,
+    data,
+    spanGaps: true,
+    borderColor: color,
+    backgroundColor: color + '33', // Adds a slight transparency
+    borderWidth: 2,
+    pointStyle: pointStyle,        // Uses the specific shape
+    pointRadius: pointRadius,      // Uses the specific size
+    pointHoverRadius: pointRadius + 2, 
+    pointBackgroundColor: color,
+    borderDash: dash,
+    tension: .3
+  };
+}
+
+function bindTrendTabs(tabsId, renderFn) {
+  document.querySelectorAll(`#${tabsId} .trend-tab`).forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll(`#${tabsId} .trend-tab`).forEach(x=>x.classList.remove('active'));
+      t.classList.add('active');
+      renderFn(t.dataset.p);
+    });
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   HORIZONTAL BAR LIST (model distribution)
+═══════════════════════════════════════════════ */
+function renderModelBars(elId, rows, modelField, color) {
+  const counts = {};
+  rows.forEach(r => { const m=(r[modelField]||'').trim(); if(m) counts[m]=(counts[m]||0)+1; });
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,15);
+  const max = sorted[0]?.[1]||1;
+  const el = document.getElementById(elId);
+  if(!el) return;
+  if(!sorted.length) { el.innerHTML='<div class="empty"><i class="ti ti-mood-empty"></i><p>No data</p></div>'; return; }
+  el.innerHTML = sorted.map(([m,c]) => `
+    <div class="h-bar-row">
+      <div class="h-bar-model" title="${m}">${m}</div>
+      <div class="h-bar-track">
+        <div class="h-bar-fill" style="width:${(c/max*100).toFixed(1)}%;background:${color}CC"></div>
+        <div class="h-bar-count">${c}</div>
+      </div>
+      <div class="h-bar-total">${c}</div>
+    </div>`).join('');
+}
+
+/* ═══════════════════════════════════════════════
+   TABLE RENDERER
+═══════════════════════════════════════════════ */
+function renderTable(elId, rows, cols, tagCols={}, countElId) {
+  const el=document.getElementById(elId);
+  if(!el) return;
+  if(!rows?.length) { el.innerHTML='<div class="empty"><i class="ti ti-mood-empty"></i><p>No matching records found.</p></div>'; if(countElId)document.getElementById(countElId).textContent='0 rows'; return; }
+  if(countElId) document.getElementById(countElId).textContent = rows.length.toLocaleString()+' rows';
+  const useCols=cols||Object.keys(rows[0]||{}).slice(0,14);
+  let h='<table><thead><tr>';
+  useCols.forEach(c=>h+=`<th onclick="sortTable('${elId}',${JSON.stringify(c)})" title="${c}">${c}<span class="sort-icon"></span></th>`);
+  h+='</tr></thead><tbody>';
+  rows.slice(0,2000).forEach(r=>{
+    h+='<tr>';
+    useCols.forEach(c=>{
+      let v=(r[c]??'').toString();
+      const fn=tagCols[c];
+      if(fn){const cls=fn(v);if(cls)v=`<span class="tag ${cls}">${v||'—'}</span>`;}
+      h+=`<td title="${v.replace(/<[^>]+>/g,'')}">${v||''}</td>`;
+    });
+    h+='</tr>';
+  });
+  h+='</tbody></table>';
+  el.innerHTML=h;
+}
+
+function sortTable(elId, colKey) {
+  const src=Object.values(TDATA).find(x=>x&&x.tableEl===elId);
+  if(!src) return;
+  src._sortCol=colKey; src._sortDir=(src._sortDir==='asc')?'desc':'asc';
+  const sorted=[...src.filtered].sort((a,b)=>{
+    const va=(a[colKey]||'').toString(), vb=(b[colKey]||'').toString();
+    const na=parseFloat(va),nb=parseFloat(vb);
+    const cmp=(!isNaN(na)&&!isNaN(nb))?(na-nb):va.localeCompare(vb);
+    return src._sortDir==='asc'?cmp:-cmp;
+  });
+  renderTable(elId,sorted,src.cols,src.tagCols,src.countEl);
+}
+
+function filterTable(key) {
+  const src=TDATA[key]; if(!src) return;
+  const q=(document.getElementById(key+'-search')?.value||'').toLowerCase();
+  const stFilter=document.getElementById(key+'-status-filter')?.value||'';
+  const tyFilter=document.getElementById(key+'-type-filter')?.value||'';
+  const srcFilter=document.getElementById(key+'-src')?.value||'';
+  let rows=src.rows;
+  if(q)        rows=rows.filter(r=>Object.values(r).some(v=>(v||'').toLowerCase().includes(q)));
+  if(stFilter) rows=rows.filter(r=>Object.values(r).some(v=>(v||'').toUpperCase().includes(stFilter)));
+  if(tyFilter) rows=rows.filter(r=>Object.values(r).some(v=>(v||'').toUpperCase().includes(tyFilter)));
+  if(srcFilter)rows=rows.filter(r=>(r.__source||'').includes(srcFilter));
+  src.filtered=rows;
+  renderTable(src.tableEl, rows, src.cols, src.tagCols, src.countEl);
+}
+
+function downloadCSV(key) {
+  const src=TDATA[key]; if(!src||!src.rows.length) return;
+  const cols=src.cols||Object.keys(src.rows[0]);
+  let csv=cols.join(',')+'\n';
+  src.rows.forEach(r=>{ csv+=cols.map(c=>'"'+(r[c]||'').toString().replace(/"/g,'""')+'"').join(',')+'\n'; });
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=key+'_ecn_export.csv'; a.click();
+  toast('CSV downloaded','ti-download');
+}
+
+function setTData(key,rows,cols,tagCols,tableEl,countEl) {
+  TDATA[key]={rows,cols,tagCols,tableEl,countEl,filtered:rows};
+  filterTable(key);
+}
+
+/* ═══════════════════════════════════════════════
+   PAGE LOADERS
+═══════════════════════════════════════════════ */
+
+async function loadHome() {
+  try {
+    const [ns,sv,tab]=await Promise.all([loadCSV('nsSum'),loadCSV('svSum'),loadCSV('tabSum')]);
+    
+    // THE FIX: Bulletproof column finders. This explicitly BANS the word 'date' from being used as a status column.
+    const getCol = arr => Object.keys(arr[0]||{}).find(k => /implement|close|status/i.test(k) && !/date/i.test(k)) || 'IMPLEMENTED / NOT IMPLEMENTED';
+    const getDate = arr => Object.keys(arr[0]||{}).find(k => /^date$/i.test(k)) || 'DATE';
+
+    const nsCl = ns.filter(r=>isClose(r['CUSTOMER ECN NO.'])).length;
+    const svCl = sv.filter(r=>isClose(r['CUSTOMER ECN NO.'])).length;
+    const tabCl = tab.filter(r=>isClose(r['SAP IMPLEMENTATION'])).length;
+    
+    const total=ns.length+sv.length+tab.length;
+    const closed=nsCl+svCl+tabCl;
+    const open=total-closed;
+    const rate=total?(closed/total*100).toFixed(1):0;
+
+    document.getElementById('h-total').textContent=fmt(total);
+    document.getElementById('h-total-sub').textContent=`${ns.length} Non-SVN · ${sv.length} SVN · ${tab.length} TAB`;
+    document.getElementById('h-closed').textContent=fmt(closed);
+    document.getElementById('h-rate').textContent=`↑ ${rate}% overall close rate`;
+    document.getElementById('h-open').textContent=fmt(open);
+    document.getElementById('h-open-sub').textContent=`${(open/total*100).toFixed(1)}% still open`;
+    document.getElementById('h-tab').textContent=fmt(tab.length);
+
+    // Donut
+    const donutLabels=['Implemented','Not Implemented'];
+    const donutData=[closed,open];
+    const donutColors=[COLORS.teal,COLORS.amber];
+    makeDonut('h-donut',donutLabels,donutData,donutColors);
+    document.getElementById('h-donut-pct').textContent=rate+'%';
+    document.getElementById('h-donut-legend').innerHTML=`
+      <div class="donut-leg-item"><div class="donut-leg-dot" style="background:${COLORS.teal}"></div><div class="donut-leg-label">Implemented</div><div class="donut-leg-val">${fmt(closed)}</div></div>
+      <div class="donut-leg-item"><div class="donut-leg-dot" style="background:${COLORS.amber}"></div><div class="donut-leg-label">Not Implemented</div><div class="donut-leg-val">${fmt(open)}</div></div>
+      <div class="donut-leg-item"><div class="donut-leg-dot" style="background:var(--grey-300)"></div><div class="donut-leg-label">Total</div><div class="donut-leg-val">${fmt(total)}</div></div>`;
+
+    // Platform bars
+    const nsPct =ns.length?+(nsCl/ns.length*100).toFixed(1):0;
+    const svPct =sv.length?+(svCl/sv.length*100).toFixed(1):0;
+    const tabPct=tab.length?+(tabCl/tab.length*100).toFixed(1):0;
+    document.getElementById('h-platform-bars').innerHTML=[
+      ['Non-SVN Mobile',nsPct,'f-teal'],
+      ['SVN Mobile',svPct,'f-blue'],
+      ['TAB Platform',tabPct,'f-purple'],
+      ['Overall',+rate,'f-amber'],
+    ].map(([l,p,c])=>`<div class="bar-row"><div class="bar-lbl">${l}</div><div class="bar-track"><div class="bar-fill ${c}" style="width:${p}%"></div></div><div class="bar-pct">${p}%</div></div>`).join('');
+
+    const renderHome=p=>{// 1. Auto-populate the Year Filter Dropdown
+    const allDates = [...ns, ...sv, ...tab].map(r => parseDate(r['DATE'] || r['Date']));
+    const years = [...new Set(allDates.filter(d => d && !isNaN(d)).map(d => d.getFullYear()))].sort((a,b) => b - a);
+    
+    const yearSelect = document.getElementById('h-year-filter');
+    if (yearSelect && yearSelect.options.length === 1) { // Only populate it once
+      years.forEach(y => yearSelect.insertAdjacentHTML('beforeend', `<option value="${y}">${y}</option>`));
+    }
+
+    // 2. Keep track of which tab is currently active
+    let currentHomePeriod = 'weekly';
+
+    // 3. The updated render function
+    const renderHome = p => {
+      // Update the active period, or keep the current one if just filtering the year
+      if (p) currentHomePeriod = p; 
+      
+      const selectedYear = document.getElementById('h-year-filter').value;
+
+      // Filter function to remove rows that don't match the selected year
+      const yearFilterFn = r => {
+        if (selectedYear === 'all') return true;
+        const d = parseDate(r['DATE'] || r['Date']);
+        return d && d.getFullYear() === parseInt(selectedYear);
+      };
+
+      // Apply the filter to the data arrays
+      const filteredNs = ns.filter(yearFilterFn);
+      const filteredSv = sv.filter(yearFilterFn);
+      const filteredTab = tab.filter(yearFilterFn);
+
+      // Generate chart data using the FILTERED arrays instead of the full arrays
+      const a = closePctTrend(filteredNs, 'DATE', r => isClose(r['CUSTOMER ECN NO.']), currentHomePeriod);
+      const b = closePctTrend(filteredSv, 'DATE', r => isClose(r['CUSTOMER ECN NO.']), currentHomePeriod);
+      
+      const tabCol = Object.keys(tab[0]||{}).find(k=>k.toUpperCase()==='SAP IMPLEMENTATION') || 'IMPLEMENTED / NOT IMPLEMENTED';
+      const c_ = closePctTrend(filteredTab, 'DATE', r => isImpl(r[tabCol]), currentHomePeriod);
+      
+      const allL = [...new Set([...a.labels, ...b.labels, ...c_.labels])].sort((x, y) => {
+        if (x.includes('-W')) return x.localeCompare(y);
+        const dX = new Date(x), dY = new Date(y);
+        if (!isNaN(dX) && !isNaN(dY)) return dX - dY;
+        return x.localeCompare(y); 
+      });
+
+      const align = (ds,lbs) => { const m = Object.fromEntries(ds.labels.map((l,i) => [l, ds.data[i]])); return lbs.map(l => m[l] ?? null); };
+      
+      makeLine('h-chart',allL,[
+        lineDs('Non-SVN', align(a,allL), COLORS.blue, [], 'circle', 2), 
+        lineDs('SVN', align(b,allL), COLORS.teal, [5,3], 'rect', 4),    
+        lineDs('TAB', align(c_,allL), COLORS.amber, [2,2], 'rectRot', 6) 
+      ],{pct:true,min:0,max:110,legend:false});
+    };
+
+    // 4. Listen for changes on the dropdown and re-render
+    yearSelect.addEventListener('change', () => renderHome());
+
+    // 5. Initial render and tab binding
+    renderHome('weekly');
+    bindTrendTabs('h-trend-tabs', renderHome);
+    
+    toast('Home data loaded');
+    };
+    renderHome('weekly');
+    bindTrendTabs('h-trend-tabs',renderHome);
+    toast('Home data loaded');
+  } catch(e) { console.error(e); toast('Error loading home data','ti-alert-circle'); }
+}
+
+async function loadNsSum() {
+  try {
+    const rows=await loadCSV('nsSum');
+    const models=new Set(rows.map(r=>r.MODEL||r.Model).filter(Boolean)).size;
+    
+    // THE FIX: Bulletproof column finders
+    const dField = Object.keys(rows[0]||{}).find(k => /^date$/i.test(k)) || 'DATE';
+    const sField = Object.keys(rows[0]||{}).find(k => /implement|close|status/i.test(k) && !/date/i.test(k)) || 'IMPLEMENTED / NOT IMPLEMENTED';
+    
+    const impl=rows.filter(r=>isClose(r['CUSTOMER ECN NO.'])).length;    const open=rows.length-impl;
+    
+    document.getElementById('ns-models').textContent=fmt(models);
+    document.getElementById('ns-impl').textContent=fmt(impl);
+    document.getElementById('ns-open').textContent=fmt(open);
+    document.getElementById('ns-total').textContent=fmt(rows.length);
+    renderModelBars('ns-model-bars',rows,'MODEL',COLORS.blue);
+    
+    const cols=['WEEK NO','DATE','MODEL','ECN NO.','FG/SFG code','CUSTOMER ECN NO.','SAP IMPLEMENTATION DATE','IMPLEMENTED / NOT IMPLEMENTED','REMARK','WIND-CHILL IMPLEMENTATION DATE'].filter(c=>rows[0]&&c in rows[0]);
+    
+    const tagCols = {};
+    tagCols[sField] = v=>isImpl(v)?'tag-green':'tag-amber';
+    setTData('ns',rows,cols.length?cols:Object.keys(rows[0]||{}).slice(0,11), tagCols, 'ns-table','ns-count');
+    
+    const render=p=>{const g=closePctTrend(rows,'DATE',r=>isClose(r['CUSTOMER ECN NO.']),p);makeLine('ns-chart',g.labels,[lineDs('Close %',g.data,COLORS.blue)],{pct:true,min:0,max:110});};
+    // const render=p=>{const g=closePctTrend(rows, dField, r=>isImpl(r[sField]), p);makeLine('ns-chart',g.labels,[lineDs('Close %',g.data,COLORS.blue)],{pct:true,min:0,max:110});};
+    render('weekly'); bindTrendTabs('ns-trend-tabs',render);
+    toast('Non-SVN Summary loaded');
+  } catch(e){console.error(e);showErr('ns-table','Non-SVN Summary');}
+}
+
+async function loadSvSum() {
+  try {
+    const rows=await loadCSV('svSum');
+    const models=new Set(rows.map(r=>r.MODEL||r.Model).filter(Boolean)).size;
+    
+    // THE FIX: Bulletproof column finders
+    const dField = Object.keys(rows[0]||{}).find(k => /^date$/i.test(k)) || 'DATE';
+    const sField = Object.keys(rows[0]||{}).find(k => /implement|close|status/i.test(k) && !/date/i.test(k)) || 'IMPLEMENTED / NOT IMPLEMENTED';
+    
+    const impl=rows.filter(r=>isClose(r['CUSTOMER ECN NO.'])).length;
+    const open=rows.length-impl;
+    
+    document.getElementById('sv-models').textContent=fmt(models);
+    document.getElementById('sv-impl').textContent=fmt(impl);
+    document.getElementById('sv-open').textContent=fmt(open);
+    document.getElementById('sv-total').textContent=fmt(rows.length);
+    renderModelBars('sv-model-bars',rows,'MODEL',COLORS.teal);
+    
+    const cols=['WEEK NO','DATE','MODEL','ECN NO.','FG/SFG code','TYPE','CUSTOMER ECN NO.','SAP IMPLEMENTATION DATE','IMPLEMENTED / NOT IMPLEMENTED','REMARK','WIND-CHILL IMPLEMENTATION DATE'].filter(c=>rows[0]&&c in rows[0]);
+    
+    const tagCols = {};
+    tagCols[sField] = v=>isImpl(v)?'tag-green':'tag-amber';
+    setTData('sv',rows,cols.length?cols:Object.keys(rows[0]||{}).slice(0,11), tagCols, 'sv-table','sv-count');
+    
+    // const render=p=>{const g=closePctTrend(rows, dField, r=>isImpl(r[sField]), p);makeLine('sv-chart',g.labels,[lineDs('Close %',g.data,COLORS.teal)],{pct:true,min:0,max:110});};
+    const render=p=>{const g=closePctTrend(rows,'DATE',r=>isClose(r['CUSTOMER ECN NO.']),p);makeLine('sv-chart',g.labels,[lineDs('Close %',g.data,COLORS.teal)],{pct:true,min:0,max:110});}; 
+    render('weekly'); bindTrendTabs('sv-trend-tabs',render);
+    toast('SVN Summary loaded');
+  } catch(e){console.error(e);showErr('sv-table','SVN Summary');}
+}
+
+async function loadNsStatus() {
+  try {
+    const rows=await loadCSV('nsStatus');
+    const models=new Set(rows.map(r=>r.Model||r.MODEL).filter(Boolean)).size;
+    const add=rows.filter(r=>/add/i.test(r['Change Type']||'')).length;
+    const del_=rows.filter(r=>/delete/i.test(r['Change Type']||'')).length;
+    const chg=rows.filter(r=>/change/i.test(r['Change Type']||'')).length;
+    const ecns=new Set(rows.map(r=>r['Customer ECN No.']||r['CUSTOMER ECN NO.']).filter(Boolean)).size;
+    document.getElementById('nss-models').textContent=fmt(models);
+    document.getElementById('nss-add').textContent=fmt(add);
+    document.getElementById('nss-del').textContent=fmt(del_);
+    document.getElementById('nss-chg').textContent=fmt(chg);
+    document.getElementById('nss-ecn').textContent=fmt(ecns);
+    // Change type donut
+    makeDonut('nss-donut',['Add','Delete','Change'],[add,del_,chg],[COLORS.teal,COLORS.red,COLORS.amber]);
+    document.getElementById('nss-type-legend').innerHTML=`
+      <div class="donut-leg-item"><div class="donut-leg-dot" style="background:${COLORS.teal}"></div><span>Add</span><div class="donut-leg-val">${fmt(add)}</div></div>
+      <div class="donut-leg-item"><div class="donut-leg-dot" style="background:${COLORS.red}"></div><span>Delete</span><div class="donut-leg-val">${fmt(del_)}</div></div>
+      <div class="donut-leg-item"><div class="donut-leg-dot" style="background:${COLORS.amber}"></div><span>Change</span><div class="donut-leg-val">${fmt(chg)}</div></div>`;
+    const preferred=['SL NO','Receiving Date','Acknowledge By','Model','FG/SFG Code','Customer ECN No.','ECN Type','Change Type','SAP ECN No','Delete Part','Add Part','Description','Alternate Part','Alternate Part Description','Main Part','Delete Qty','Add Qty'];
+    const cols=preferred.filter(c=>rows[0]&&c in rows[0]);
+    setTData('nss',rows,cols.length?cols:Object.keys(rows[0]||{}).slice(0,10),{'Change Type':v=>/add/i.test(v)?'tag-green':/delete/i.test(v)?'tag-red':'tag-amber'},'nss-table','nss-count');
+    const render=p=>{const g=countTrend(rows,'Receiving Date','Customer ECN No.',p);makeLine('nss-chart',g.labels,[lineDs('ECN Count',g.data,COLORS.amber)]);};
+    render('weekly'); bindTrendTabs('nss-trend-tabs',render);
+    toast('Non-SVN Status loaded');
+  } catch(e){console.error(e);showErr('nss-table','Non-SVN Status');}
+}
+
+async function loadSvStatus() {
+  try {
+    const rows=await loadCSV('svStatus');
+    const models=new Set(rows.map(r=>r.Model||r.MODEL).filter(Boolean)).size;
+    const add=rows.filter(r=>/add/i.test(r['Change Type']||'')).length;
+    const del_=rows.filter(r=>/delete/i.test(r['Change Type']||'')).length;
+    const ecns=new Set(rows.map(r=>r['Customer ECN No.']||r['CUSTOMER ECN NO.']).filter(Boolean)).size;
+    document.getElementById('svs-models').textContent=fmt(models);
+    document.getElementById('svs-add').textContent=fmt(add);
+    document.getElementById('svs-del').textContent=fmt(del_);
+    document.getElementById('svs-ecn').textContent=fmt(ecns);
+    const preferred=['SL NO','Receiving Date','Acknowledge By','Model','FG/SFG Code','Customer ECN No.','ECN Type','Change Type','SAP ECN No','Delete Part','Add Part','Description','Alternate Part','Alternate Part Description','Main Part','Delete Qty','Add Qty'];
+    const cols=preferred.filter(c=>rows[0]&&c in rows[0]);
+    setTData('svs',rows,cols.length?cols:Object.keys(rows[0]||{}).slice(0,10),{'Change Type':v=>/add/i.test(v)?'tag-green':/delete/i.test(v)?'tag-red':'tag-amber'},'svs-table','svs-count');
+    const render=p=>{const g=countTrend(rows,'Receiving Date','Customer ECN No.',p);makeLine('svs-chart',g.labels,[lineDs('ECN Count',g.data,COLORS.blue)]);};
+    render('weekly'); bindTrendTabs('svs-trend-tabs',render);
+    toast('SVN Status loaded');
+  } catch(e){console.error(e);showErr('svs-table','SVN Status');}
+}
+
+async function loadFutDate() {
+  try {
+    const rows=await loadCSV('futDate');
+    const models=new Set(rows.map(r=>r.Model||r.MODEL).filter(Boolean)).size;
+    const open=rows.filter(r=>/open/i.test(r.Status||r.STATUS||'')).length;
+    const ecns=new Set(rows.map(r=>r['CUSTOMER ECN NO.']||r['Customer ECN No.']).filter(Boolean)).size;
+    document.getElementById('fd-models').textContent=fmt(models);
+    document.getElementById('fd-open').textContent=fmt(open);
+    document.getElementById('fd-ecn').textContent=fmt(ecns);
+    const cols=Object.keys(rows[0]||{}).slice(0,24);
+    setTData('fd',rows,cols,{Status:v=>/open/i.test(v)?'tag-amber':/close/i.test(v)?'tag-green':'tag-blue',STATUS:v=>/open/i.test(v)?'tag-amber':/close/i.test(v)?'tag-green':'tag-blue'},'fd-table','fd-count');
+    toast('Future Date loaded');
+  } catch(e){console.error(e);showErr('fd-table','Future Date');}
+}
+
+async function loadModelWise() {
+  try {
+    const rows=await loadCSV('modelW');
+    const models=new Set(rows.map(r=>r.MODEL||r.Model||r['Model Name']).filter(Boolean)).size;
+    document.getElementById('mw-models').textContent=fmt(models);
+    document.getElementById('mw-total').textContent=fmt(rows.length);
+    document.getElementById('mw-cols').textContent=fmt(Object.keys(rows[0]||{}).length);
+    // Bar chart of top models
+    const modelField=Object.keys(rows[0]||{}).find(k=>/model/i.test(k))||'MODEL';
+    const counts={};
+    rows.forEach(r=>{const m=(r[modelField]||'').trim();if(m)counts[m]=(counts[m]||0)+1;});
+    const top=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,20);
+    makeBar('mw-chart',top.map(x=>x[0]),top.map(x=>x[1]),COLORS.blue);
+    const cols=Object.keys(rows[0]||{}).slice(0,12);
+    setTData('mw',rows,cols,{},'mw-table','mw-count');
+    toast('Model Wise loaded');
+  } catch(e){console.error(e);showErr('mw-table','Model Wise');}
+}
+
+async function loadOverall() {
+  try {
+    const rows=await loadCSV('overall');
+    const modelField=Object.keys(rows[0]||{}).find(k=>/model/i.test(k))||'MODEL';
+    const models=new Set(rows.map(r=>r[modelField]).filter(Boolean)).size;
+    document.getElementById('ov-total').textContent=fmt(rows.length);
+    document.getElementById('ov-models').textContent=fmt(models);
+    document.getElementById('ov-cols').textContent=fmt(Object.keys(rows[0]||{}).length);
+    const cols=Object.keys(rows[0]||{}).slice(0,14);
+    setTData('ov',rows,cols,{},'ov-table','ov-count');
+    toast('Overall loaded');
+  } catch(e){console.error(e);showErr('ov-table','Overall');}
+}
+
+async function loadTabOverall() {
+  try {
+    const rows=await loadCSV('tabOv');
+    const modelField=Object.keys(rows[0]||{}).find(k=>/model/i.test(k))||'MODEL';
+    const models=new Set(rows.map(r=>r[modelField]).filter(Boolean)).size;
+    document.getElementById('to-total').textContent=fmt(rows.length);
+    document.getElementById('to-models').textContent=fmt(models);
+    document.getElementById('to-cols').textContent=fmt(Object.keys(rows[0]||{}).length);
+    const cols=Object.keys(rows[0]||{}).slice(0,14);
+    setTData('to',rows,cols,{},'to-table','to-count');
+    toast('TAB Overall loaded');
+  } catch(e){console.error(e);showErr('to-table','TAB Overall');}
+}
+
+async function loadTabSum() {
+  try {
+    const rows=await loadCSV('tabSum');
+    const modelField=Object.keys(rows[0]||{}).find(k=>/model/i.test(k))||'MODEL';
+    const implField=Object.keys(rows[0]||{}).find(k=>/implement/i.test(k))||'SAP IMPLEMENTATION';
+    const models=new Set(rows.map(r=>r[modelField]).filter(Boolean)).size;
+    const impl=rows.filter(r=>isImpl(r[implField]||'')).length;
+    const open=rows.length-impl;
+    document.getElementById('ts-models').textContent=fmt(models);
+    document.getElementById('ts-impl').textContent=fmt(impl);
+    document.getElementById('ts-open').textContent=fmt(open);
+    document.getElementById('ts-total').textContent=fmt(rows.length);
+    renderModelBars('ts-model-bars',rows,modelField,COLORS.purple);
+    const cols=Object.keys(rows[0]||{}).slice(0,10);
+    const tagCols={};
+    tagCols[implField]=v=>isImpl(v)?'tag-green':'tag-amber';
+    setTData('ts',rows,cols,tagCols,'ts-table','ts-count');
+    const render=p=>{const g=closePctTrend(rows,Object.keys(rows[0]||{}).find(k=>/^date$/i.test(k))||'DATE',r=>isImpl(r[implField]||''),p);makeLine('ts-chart',g.labels,[lineDs('Close %',g.data,COLORS.purple)],{pct:true,min:0,max:110});};
+    render('weekly'); bindTrendTabs('ts-trend-tabs',render);
+    toast('TAB Summary loaded');
+  } catch(e){console.error(e);showErr('ts-table','TAB Summary');}
+}
+
+async function loadTabStatus() {
+  try {
+    const rows=await loadCSV('tabStat');
+    const modelField=Object.keys(rows[0]||{}).find(k=>/model/i.test(k))||'Model';
+    const ecnField=Object.keys(rows[0]||{}).find(k=>/customer.*ecn|ecn.*no/i.test(k))||'Customer ECN No.';
+    const changeField=Object.keys(rows[0]||{}).find(k=>/change.*type/i.test(k))||'Change Type';
+    const models=new Set(rows.map(r=>r[modelField]).filter(Boolean)).size;
+    const add=rows.filter(r=>/add/i.test(r[changeField]||'')).length;
+    const del_=rows.filter(r=>/delete/i.test(r[changeField]||'')).length;
+    const ecns=new Set(rows.map(r=>r[ecnField]).filter(Boolean)).size;
+    document.getElementById('tss-models').textContent=fmt(models);
+    document.getElementById('tss-add').textContent=fmt(add);
+    document.getElementById('tss-del').textContent=fmt(del_);
+    document.getElementById('tss-ecn').textContent=fmt(ecns);
+    const cols=Object.keys(rows[0]||{}).slice(0,17);
+    const tagCols={};
+    tagCols[changeField]=v=>/add/i.test(v)?'tag-green':/delete/i.test(v)?'tag-red':'tag-amber';
+    setTData('tss',rows,cols,tagCols,'tss-table','tss-count');
+    const dateField=Object.keys(rows[0]||{}).find(k=>/receiving.*date|date/i.test(k))||'Receiving Date';
+    const render=p=>{const g=countTrend(rows,dateField,ecnField,p);makeLine('tss-chart',g.labels,[lineDs('ECN Count',g.data,COLORS.purple)],{});};
+    render('weekly'); bindTrendTabs('tss-trend-tabs',render);
+    toast('TAB Status loaded');
+  } catch(e){console.error(e);showErr('tss-table','TAB Status');}
+}
+
+async function loadTabFut() {
+  try {
+    const rows=await loadCSV('tabFut');
+    const modelField=Object.keys(rows[0]||{}).find(k=>/model/i.test(k))||'MODEL';
+    const models=new Set(rows.map(r=>r[modelField]).filter(Boolean)).size;
+    const open=rows.filter(r=>Object.values(r).some(v=>/open/i.test(v||''))).length;
+    document.getElementById('tf-models').textContent=fmt(models);
+    document.getElementById('tf-open').textContent=fmt(open);
+    document.getElementById('tf-total').textContent=fmt(rows.length);
+    const cols=Object.keys(rows[0]||{}).slice(0,24);
+    setTData('tf',rows,cols,{},'tf-table','tf-count');
+    toast('TAB Future Date loaded');
+  } catch(e){console.error(e);showErr('tf-table','TAB Future Date');}
+}
+
+/* ═══════════════════════════════════════════════
+   DETAILED RECORDS — full state
+═══════════════════════════════════════════════ */
+let _detRaw = [];          // all combined rows with __timeDiff
+let _detTab = 'within';    // active sub-tab
+let _detFiltered = [];     // after search + week filter
+const DET_PAGE_SIZE = 100;
+let _detPage = 1;
+
+function _detParseDate(str) {
+  if (!str || typeof str !== 'string') return null;
+  str = str.trim();
+  // dd-mm-yyyy or dd/mm/yyyy
+  let m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (m) { const y=m[3].length===2?'20'+m[3]:m[3]; return new Date(`${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`); }
+  // yyyy-mm-dd
+  m = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  if (m) return new Date(str);
+  const d = new Date(str);
+  return isNaN(d) ? null : d;
+}
+
+function _detDiffDays(receivedStr, implStr) {
+  const r = _detParseDate(receivedStr);
+  const i = _detParseDate(implStr);
+  if (!r || !i || isNaN(r) || isNaN(i)) return null;
+  return Math.round((i - r) / 86400000);
+}
+
+function _detWeekLabel(dateStr, weekNo) {
+  // prefer WEEK NO. column, else compute from date
+  if (weekNo && !isNaN(parseInt(weekNo))) {
+    const d = _detParseDate(dateStr);
+    const yr = d ? d.getFullYear() : '';
+    return yr ? `WK-${parseInt(weekNo)} (${yr})` : `WK-${parseInt(weekNo)}`;
+  }
+  const d = _detParseDate(dateStr);
+  if (!d || isNaN(d)) return null;
+  const jan1 = new Date(d.getFullYear(), 0, 1);
+  const wk = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+  return `WK-${wk} (${d.getFullYear()})`;
+}
+
+function _detWeekSort(label) {
+  // "WK-24 (2026)" → sortable int
+  const m = label.match(/WK-(\d+)\s*\((\d+)\)/);
+  return m ? parseInt(m[2]) * 100 + parseInt(m[1]) : 0;
+}
+
+async function loadDetailed() {
+  try {
+    const [ns, sv] = await Promise.all([loadCSV('nsSum'), loadCSV('svSum')]);
+
+    // build combined rows
+    const combine = (rows, src) => rows.map(r => {
+      const received  = r['DATE'] || r['Date'] || '';
+      const sapImpl   = r['SAP IMPLEMENTATION DATE'] || r['SAP Implementation Date'] || '';
+      const windImpl  = r['WIND-CHILL IMPLEMENTATION DATE'] || r['Wind-Chill Implementation Date'] || '';
+      const implDate  = windImpl || sapImpl;
+      const diff      = _detDiffDays(received, implDate);
+      const weekLabel = _detWeekLabel(received, r['WEEK NO.'] || r['WEEK NO'] || '');
+      return { ...r, __source: src, __timeDiff: diff, __weekLabel: weekLabel, __received: received, __implDate: implDate };
+    });
+
+    _detRaw = [...combine(ns, 'Non-SVN'), ...combine(sv, 'SVN')];
+
+    // populate year dropdown
+    const years = [...new Set(_detRaw.map(r => {
+      const d = _detParseDate(r.__received);
+      return d ? d.getFullYear() : null;
+    }).filter(Boolean))].sort((a,b)=>b-a);
+    const yearSel = document.getElementById('det-year');
+    if (yearSel) {
+      yearSel.innerHTML = '<option value="all">All Years</option>' +
+        years.map(y => `<option value="${y}">${y}</option>`).join('');
+    }
+
+    // populate week dropdown (sorted newest first)
+    const weeks = [...new Set(_detRaw.map(r => r.__weekLabel).filter(Boolean))]
+      .sort((a,b) => _detWeekSort(b) - _detWeekSort(a));
+    const weekSel = document.getElementById('det-week-filter');
+    if (weekSel) {
+      weekSel.innerHTML = '<option value="">Showing all weeks…</option>' +
+        weeks.map(w => `<option value="${w}">${w}</option>`).join('');
+    }
+
+    renderDetailed();
+    toast('Detailed Records loaded');
+  } catch(e) { console.error(e); showErr('det-table', 'Detailed Records'); }
+}
+
+function _getDetView() {
+  return (document.getElementById('det-view')?.value) || 'all';
+}
+function _getDetYear() {
+  return (document.getElementById('det-year')?.value) || 'all';
+}
+
+function renderDetailed() {
+  const view = _getDetView();
+  const year = _getDetYear();
+
+  // apply view + year filter to base data
+  let base = _detRaw;
+  if (view !== 'all') base = base.filter(r => r.__source === view);
+  if (year !== 'all') base = base.filter(r => {
+    const d = _detParseDate(r.__received);
+    return d && d.getFullYear() === parseInt(year);
+  });
+
+  // update title
+  const viewLabel = view === 'all' ? 'All Combined (SVN + Non-SVN)' : view + ' Only';
+  const yearLabel = year === 'all' ? 'All Years' : year;
+  const titleEl = document.getElementById('det-weekly-title');
+  if (titleEl) titleEl.textContent = `Weekly Implementation Summary (${viewLabel} | ${yearLabel})`;
+
+  // ── KPIs ──
+  const total       = base.length;
+  const implemented = base.filter(r => r.__timeDiff !== null).length;
+  const onTime      = base.filter(r => r.__timeDiff !== null && r.__timeDiff <= 2).length;
+  const rate        = implemented > 0 ? (onTime / implemented * 100).toFixed(2) : '—';
+
+  document.getElementById('det-received').textContent    = fmt(total);
+  document.getElementById('det-implemented').textContent = fmt(implemented);
+  document.getElementById('det-on-time').textContent     = fmt(onTime);
+  document.getElementById('det-rate').textContent        = rate !== '—' ? rate + '%' : '—';
+  document.getElementById('det-ns-sub').textContent      = `Non-SVN: ${_detRaw.filter(r=>r.__source==='Non-SVN').length.toLocaleString()} · SVN: ${_detRaw.filter(r=>r.__source==='SVN').length.toLocaleString()}`;
+  document.getElementById('det-sv-sub').textContent      = `${implemented} of ${total} implemented`;
+  document.getElementById('det-tab-sub').textContent     = `${rate !== '—' ? rate+'% on-time rate' : 'N/A'}`;
+
+  // ── Weekly Summary Table ──
+  _renderWeeklyTable(base);
+
+  // ── Trend Chart ──
+  _renderDetTrendChart(base);
+
+  // ── Detail table (reset filter + show) ──
+  filterDetailed(base);
+}
+
+function _renderWeeklyTable(base) {
+  // group by week label, sorted newest→oldest
+  const weekMap = new Map();
+  base.forEach(r => {
+    if (!r.__weekLabel) return;
+    if (!weekMap.has(r.__weekLabel)) weekMap.set(r.__weekLabel, []);
+    weekMap.get(r.__weekLabel).push(r);
+  });
+
+  const sortedWeeks = [...weekMap.keys()].sort((a,b) => _detWeekSort(b) - _detWeekSort(a));
+
+  if (!sortedWeeks.length) {
+    document.getElementById('det-weekly-table').innerHTML = '<div class="empty"><i class="ti ti-mood-empty"></i><p>No weekly data</p></div>';
+    return;
+  }
+
+  // row definitions
+  const ROW_LABELS = [
+    { cat:'ECN received',               det:'Run-in Change',  fn: (wk,_t) => wk.filter(r=>/run.in/i.test(r['FG/SFG code']||r['FG/SFG Code']||'')).length },
+    { cat:'ECN received',               det:'Cut-in change',  fn: (wk,_t) => wk.filter(r=>/cut.in|initial/i.test(r['FG/SFG code']||r['FG/SFG Code']||'')).length },
+    { cat:'Implemented within 48 Hrs',  det:'Run-in Change',  fn: (wk,_t) => wk.filter(r=>r.__timeDiff!==null&&r.__timeDiff<=2&&/run.in/i.test(r['FG/SFG code']||r['FG/SFG Code']||'')).length },
+    { cat:'Implemented within 48 Hrs',  det:'Cut-in change',  fn: (wk,_t) => wk.filter(r=>r.__timeDiff!==null&&r.__timeDiff<=2&&/cut.in|initial/i.test(r['FG/SFG code']||r['FG/SFG Code']||'')).length },
+    { cat:'Implemented after 48 Hrs',   det:'Run-in Change',  fn: (wk,_t) => wk.filter(r=>r.__timeDiff!==null&&r.__timeDiff>2&&/run.in/i.test(r['FG/SFG code']||r['FG/SFG Code']||'')).length },
+    { cat:'Implemented after 48 Hrs',   det:'Cut-in change',  fn: (wk,_t) => wk.filter(r=>r.__timeDiff!==null&&r.__timeDiff>2&&/cut.in|initial/i.test(r['FG/SFG code']||r['FG/SFG Code']||'')).length },
+    { cat:'Ontime implementation rate', det:'',               isRate:true },
+  ];
+
+  // precompute per-week data
+  const wkData = sortedWeeks.map(lbl => {
+    const wk = weekMap.get(lbl);
+    const impl   = wk.filter(r=>r.__timeDiff!==null).length;
+    const inTime = wk.filter(r=>r.__timeDiff!==null&&r.__timeDiff<=2).length;
+    const rate   = impl>0 ? Math.round(inTime/impl*100)+'%' : 'N/A';
+    return { wk, impl, inTime, rate };
+  });
+
+  // build HTML table – Category col spans 2 rows each group
+  const COLS_SHOW = sortedWeeks.slice(0, 20); // cap at 20 weeks wide
+
+  let html = `<table style="font-size:12px;min-width:600px;border-collapse:collapse;width:100%">
+<thead><tr>
+  <th style="position:sticky;top:0;left:0;z-index:5;background:#3730A3;color:#fff;padding:8px 12px;text-align:left;white-space:nowrap;min-width:180px;border:1px solid #312E81">Category</th>
+  <th style="position:sticky;top:0;left:180px;z-index:5;background:#3730A3;color:#fff;padding:8px 12px;text-align:left;white-space:nowrap;min-width:130px;border:1px solid #312E81">Details</th>
+  ${COLS_SHOW.map(lbl=>`<th style="position:sticky;top:0;z-index:4;background:#3730A3;color:#fff;padding:8px 10px;text-align:center;white-space:nowrap;min-width:100px;border:1px solid #312E81">${lbl}</th>`).join('')}
+</tr></thead><tbody>`;
+
+  // rows with rowspan grouping
+  const groups = [
+    { cat:'ECN received',               rows:[0,1] },
+    { cat:'Implemented within 48 Hrs',  rows:[2,3], bold:true },
+    { cat:'Implemented after 48 Hrs',   rows:[4,5] },
+  ];
+
+  let rowIdx = 0;
+  groups.forEach(g => {
+    g.rows.forEach((ri, gi) => {
+      const row = ROW_LABELS[ri];
+      html += '<tr>';
+      if (gi === 0) {
+        html += `<td rowspan="2" style="position:sticky;left:0;background:#fff;z-index:2;padding:8px 12px;border:1px solid #E2E8F0;font-weight:${g.bold?'700':'500'};white-space:nowrap;min-width:180px">${g.cat}</td>`;
+      }
+      html += `<td style="position:sticky;left:180px;background:#fff;z-index:2;padding:8px 12px;border:1px solid #E2E8F0;white-space:nowrap;min-width:130px">${row.det}</td>`;
+      COLS_SHOW.forEach((lbl,wi) => {
+        const val = ROW_LABELS[ri].fn(wkData[wi].wk, wkData[wi]);
+        html += `<td style="text-align:center;padding:7px 10px;border:1px solid #E2E8F0">${val}</td>`;
+      });
+      html += '</tr>';
+      rowIdx++;
+    });
+  });
+
+  // Ontime rate row – highlighted
+  html += `<tr style="background:#EEF2FF">
+    <td colspan="2" style="position:sticky;left:0;z-index:2;background:#EEF2FF;padding:8px 12px;border:1px solid #C7D2FE;font-weight:700;color:#312E81;white-space:nowrap">Ontime implementation rate</td>
+    ${COLS_SHOW.map((_,wi) => {
+      const { impl, inTime } = wkData[wi];
+      const r = impl > 0 ? Math.round(inTime/impl*100)+'%' : 'N/A';
+      return `<td style="text-align:center;padding:7px 10px;border:1px solid #C7D2FE;font-weight:700;color:#312E81">${r}</td>`;
+    }).join('')}
+  </tr>`;
+
+  html += '</tbody></table>';
+  document.getElementById('det-weekly-table').innerHTML = html;
+}
+
+function _renderDetTrendChart(base) {
+  // group weekly ontime rate
+  const weekMap = new Map();
+  base.forEach(r => {
+    if (!r.__weekLabel) return;
+    if (!weekMap.has(r.__weekLabel)) weekMap.set(r.__weekLabel, { impl:0, onTime:0 });
+    const w = weekMap.get(r.__weekLabel);
+    if (r.__timeDiff !== null) { w.impl++; if(r.__timeDiff<=2) w.onTime++; }
+  });
+  const sorted = [...weekMap.entries()].sort((a,b)=>_detWeekSort(a[0])-_detWeekSort(b[0]));
+  const labels = sorted.map(x=>x[0]);
+  const data   = sorted.map(([_,w])=> w.impl>0 ? +(w.onTime/w.impl*100).toFixed(1) : 0);
+
+  const cid = 'det-trend-chart';
+  if (CHARTS[cid]) CHARTS[cid].destroy();
+  const canvas = document.getElementById(cid);
+  if (!canvas) return;
+  CHARTS[cid] = new Chart(canvas, {
+    type:'line',
+    data:{ labels, datasets:[{
+      data,
+      borderColor:'#6366F1',
+      backgroundColor:'rgba(99,102,241,0.12)',
+      borderWidth:2.5,
+      pointRadius:3.5,
+      pointBackgroundColor:'#6366F1',
+      fill:true,
+      tension:.35,
+      label:'Ontime Rate (%)'
+    }]},
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:{duration:700},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          mode:'index',intersect:false,
+          backgroundColor:'#1A1F2B',
+          titleFont:{size:11},bodyFont:{size:11},
+          callbacks:{ label: ctx=>`Ontime Rate: ${ctx.parsed.y}%` }
+        }
+      },
+      scales:{
+        x:{ grid:{color:'rgba(0,0,0,.04)'}, ticks:{color:'#94A3B8',font:{size:10},maxRotation:45,maxTicksLimit:14} },
+        y:{ grid:{color:'rgba(0,0,0,.04)'}, min:0, max:105, ticks:{color:'#94A3B8',font:{size:10},callback:v=>v+'%'} }
+      }
+    }
+  });
+}
+
+function switchDetTab(tab) {
+  _detTab = tab;
+  // style tabs
+  const tabW = document.getElementById('det-tab-within');
+  const tabA = document.getElementById('det-tab-after');
+  if (tab === 'within') {
+    tabW.style.borderBottomColor='var(--teal-500)'; tabW.style.color='var(--teal-700)';
+    tabA.style.borderBottomColor='transparent';     tabA.style.color='var(--grey-500)';
+  } else {
+    tabA.style.borderBottomColor='var(--amber-500)'; tabA.style.color='var(--amber-700)';
+    tabW.style.borderBottomColor='transparent';      tabW.style.color='var(--grey-500)';
+  }
+  filterDetailed();
+}
+
+function filterDetailed(baseOverride) {
+  // base is view+year filtered set (passed on renderDetailed call) or re-use raw
+  const view = _getDetView();
+  const year = _getDetYear();
+  let base = baseOverride !== undefined ? baseOverride : _detRaw;
+  if (baseOverride === undefined) {
+    if (view !== 'all') base = base.filter(r=>r.__source===view);
+    if (year !== 'all') base = base.filter(r=>{ const d=_detParseDate(r.__received); return d&&d.getFullYear()===parseInt(year); });
+  }
+
+  // split into within/after
+  const within = base.filter(r=>r.__timeDiff!==null&&r.__timeDiff<=2);
+  const after  = base.filter(r=>r.__timeDiff!==null&&r.__timeDiff>2);
+
+  // update tab counts
+  const cntW = document.getElementById('det-within-cnt');
+  const cntA = document.getElementById('det-after-cnt');
+  if (cntW) cntW.textContent = within.length.toLocaleString();
+  if (cntA) cntA.textContent = after.length.toLocaleString();
+
+  // apply search + week filter
+  const q    = (document.getElementById('det-ecn-search')?.value||'').toLowerCase();
+  const wkF  = document.getElementById('det-week-filter')?.value||'';
+
+  let rows = _detTab === 'within' ? within : after;
+  if (q)   rows = rows.filter(r=>Object.values(r).some(v=>(v||'').toString().toLowerCase().includes(q)));
+  if (wkF) rows = rows.filter(r=>r.__weekLabel===wkF);
+
+  _detFiltered = rows;
+  _detPage = 1;
+
+  // store for CSV download
+  const DISPLAY_COLS = ['WEEK NO.','DATE','MODEL','ECN NO.','SAP IMPLEMENTATION DATE','WIND-CHILL IMPLEMENTATION DATE','IMPLEMENTED / NOT IMPLEMENTED'];
+  const cols = DISPLAY_COLS.filter(c=>(_detRaw[0]&&c in _detRaw[0])||c==='WEEK NO.');
+  TDATA['det'] = { rows: _detFiltered, cols, tagCols:{
+    'IMPLEMENTED / NOT IMPLEMENTED': v=>isImpl(v)?'tag-green':'tag-amber',
+  }, tableEl:'det-table', countEl:null, filtered:_detFiltered };
+
+  _renderDetTable();
+}
+
+function _renderDetTable() {
+  const total = _detFiltered.length;
+  const totalPages = Math.max(1, Math.ceil(total / DET_PAGE_SIZE));
+  _detPage = Math.min(_detPage, totalPages);
+  const slice = _detFiltered.slice((_detPage-1)*DET_PAGE_SIZE, _detPage*DET_PAGE_SIZE);
+
+  const el = document.getElementById('det-table');
+  if (!el) return;
+
+  if (!slice.length) {
+    el.innerHTML='<div class="empty"><i class="ti ti-mood-empty"></i><p>No matching records.</p></div>';
+    document.getElementById('det-pager').innerHTML='';
+    return;
+  }
+
+  const PREFERRED = ['WEEK NO.','DATE','MODEL','ECN NO.','SAP IMPLEMENTATION DATE','WIND-CHILL IMPLEMENTATION DATE','IMPLEMENTED / NOT IMPLEMENTED'];
+  const sampleRow = _detRaw[0]||{};
+  const cols = PREFERRED.filter(c=>c in sampleRow);
+
+  const tagCols = {
+    'IMPLEMENTED / NOT IMPLEMENTED': v=>isImpl(v)?'tag-green':'tag-amber',
+  };
+
+  let h='<table><thead><tr>';
+  cols.forEach(c=>h+=`<th title="${c}">${c}<span class="sort-icon"></span></th>`);
+  h+='</tr></thead><tbody>';
+  slice.forEach(r=>{
+    h+='<tr>';
+    cols.forEach(c=>{
+      let v=(r[c]??'').toString();
+      const fn=tagCols[c];
+      if(fn){const cls=fn(v);if(cls)v=`<span class="tag ${cls}">${v||'—'}</span>`;}
+      h+=`<td title="${v.replace(/<[^>]+>/g,'')}">${v||'<span style="color:var(--grey-300)">None</span>'}</td>`;
+    });
+    h+='</tr>';
+  });
+  h+='</tbody></table>';
+  el.innerHTML=h;
+
+  // pager
+  const pagerEl = document.getElementById('det-pager');
+  if (!pagerEl) return;
+  if (totalPages<=1) { pagerEl.innerHTML=`<span class="pg-info">${total.toLocaleString()} rows</span>`; return; }
+  let pb=`<span class="pg-info">${total.toLocaleString()} rows</span>`;
+  pb+=`<button class="pg-btn" ${_detPage===1?'disabled':''} onclick="_detGoPage(${_detPage-1})"><i class="ti ti-chevron-left"></i></button>`;
+  const rng=[1];
+  if(_detPage>3)rng.push('…');
+  for(let i=Math.max(2,_detPage-1);i<=Math.min(totalPages-1,_detPage+1);i++)rng.push(i);
+  if(_detPage<totalPages-2)rng.push('…');
+  if(totalPages>1)rng.push(totalPages);
+  rng.forEach(v=>{
+    if(v==='…') pb+=`<span class="pg-info">…</span>`;
+    else pb+=`<button class="pg-btn${v===_detPage?' active':''}" onclick="_detGoPage(${v})">${v}</button>`;
+  });
+  pb+=`<button class="pg-btn" ${_detPage===totalPages?'disabled':''} onclick="_detGoPage(${_detPage+1})"><i class="ti ti-chevron-right"></i></button>`;
+  pb+=`<span class="pg-info">${_detPage}/${totalPages}</span>`;
+  pagerEl.innerHTML=pb;
+}
+
+function _detGoPage(pg){ _detPage=pg; _renderDetTable(); }
+
+function showErr(elId, name) {
+  const el=document.getElementById(elId);
+  if(el) el.innerHTML=`<div class="error-state"><i class="ti ti-wifi-off"></i><p>Could not load <b>${name}</b> data.</p><p style="font-size:11px;color:var(--grey-400)">Check your internet connection or try refreshing.</p><button class="retry-btn" onclick="retry('${elId}','${name}')"><i class="ti ti-refresh"></i> Retry</button></div>`;
+}
+
+/* ═══════════════════════════════════════════════
+   PAGE ROUTER
+═══════════════════════════════════════════════ */
+const PAGE_META = {
+  'home':           ['home-2','Home','Overview Dashboard'],
+  'non-svn-summary':['chart-line','NON SVN Summary','Mobile · Close % tracking'],
+  'svn-summary':    ['chart-bar','SVN Summary','Mobile · SVN close tracking'],
+  'non-svn-status': ['clipboard-list','NON SVN Status','Mobile · Part-level detail'],
+  'svn-status':     ['clipboard-check','SVN Status','Mobile · SVN part detail'],
+  'future-date':    ['calendar-due','Future Date','Mobile · Upcoming schedule'],
+  'model-wise':     ['device-mobile-stats','Model Wise','Mobile · Per-model view'],
+  'overall':        ['layout-dashboard','Overall','Mobile · Full data view'],
+  'tab-overall':    ['device-tablet','TAB Overall','Tab · Full data view'],
+  'tab-summary':    ['chart-line','TAB Summary','Tab · Close % tracking'],
+  'tab-status':     ['clipboard-list','TAB Status','Tab · Part-level detail'],
+  'tab-future':     ['calendar-due','TAB Future Date','Tab · Upcoming schedule'],
+  'detailed':       ['table','Detailed Records','All sources combined'],
+};
+
+const PAGE_LOADERS = {
+  'home':           loadHome,
+  'non-svn-summary':loadNsSum,
+  'svn-summary':    loadSvSum,
+  'non-svn-status': loadNsStatus,
+  'svn-status':     loadSvStatus,
+  'future-date':    loadFutDate,
+  'model-wise':     loadModelWise,
+  'overall':        loadOverall,
+  'tab-overall':    loadTabOverall,
+  'tab-summary':    loadTabSum,
+  'tab-status':     loadTabStatus,
+  'tab-future':     loadTabFut,
+  'detailed':       loadDetailed,
+};
+
+function navigate(page) {
+  if (page===curPage && loaded.has(page)) return;
+  curPage=page;
+  document.querySelectorAll('.sb-item').forEach(el=>el.classList.toggle('active',el.dataset.page===page));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const el=document.getElementById('page-'+page);
+  if(el) el.classList.add('active');
+  const [icon,title,crumb]=PAGE_META[page]||['home-2',page,''];
+  document.getElementById('topbar-icon').querySelector('i').className='ti ti-'+icon;
+  document.getElementById('topbar-title').textContent=title;
+  document.getElementById('topbar-crumb').textContent=crumb;
+  if(!loaded.has(page) && PAGE_LOADERS[page]) {
+    loaded.add(page);
+    PAGE_LOADERS[page]().catch(e=>{console.error(e);});
+  }
+}
+
+function refreshAll() {
+  Object.keys(CACHE).forEach(k=>delete CACHE[k]);
+  loaded.clear();
+  Object.keys(TDATA).forEach(k=>delete TDATA[k]);
+  toast('Refreshing all data…','ti-refresh');
+  navigate(curPage);
+  loadHome();
+}
+
+/* ═══════════════════════════════════════════════
+   RETRY
+═══════════════════════════════════════════════ */
+function retry(elId, name) {
+  // find which page loader owns this table element
+  const key = Object.entries({
+    'ns-table':'ns','sv-table':'sv','nss-table':'nss','svs-table':'svs',
+    'fd-table':'fd','mw-table':'mw','ov-table':'ov','to-table':'to',
+    'ts-table':'ts','tss-table':'tss','tf-table':'tf','det-table':'det'
+  })[Object.keys({'ns-table':'ns','sv-table':'sv','nss-table':'nss','svs-table':'svs','fd-table':'fd','mw-table':'mw','ov-table':'ov','to-table':'to','ts-table':'ts','tss-table':'tss','tf-table':'tf','det-table':'det'}).indexOf(elId)]?.[1];
+  const pageMap={
+    'ns':'non-svn-summary','sv':'svn-summary','nss':'non-svn-status','svs':'svn-status',
+    'fd':'future-date','mw':'model-wise','ov':'overall','to':'tab-overall',
+    'ts':'tab-summary','tss':'tab-status','tf':'tab-future','det':'detailed'
+  };
+  const pg=pageMap[key];
+  if(pg && PAGE_LOADERS[pg]) {
+    document.getElementById(elId).innerHTML='<div class="loading"><div class="spinner"></div><p>Retrying…</p></div>';
+    // clear cache for that source
+    const srcMap={
+      'non-svn-summary':['nsSum'],'svn-summary':['svSum'],'non-svn-status':['nsStatus'],'svn-status':['svStatus'],
+      'future-date':['futDate'],'model-wise':['modelW'],'overall':['overall'],'tab-overall':['tabOv'],
+      'tab-summary':['tabSum'],'tab-status':['tabStat'],'tab-future':['tabFut'],'detailed':['nsSum','svSum','tabSum']
+    };
+    (srcMap[pg]||[]).forEach(k=>delete CACHE[k]);
+    loaded.delete(pg);
+    PAGE_LOADERS[pg]().catch(e=>{ console.error(e); showErr(elId, name); });
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   DARK MODE
+═══════════════════════════════════════════════ */
+let darkMode = localStorage.getItem('ecn-dark')==='1';
+function applyDark() {
+  document.documentElement.classList.toggle('dark', darkMode);
+  const btn = document.getElementById('dark-toggle');
+  if(btn) btn.title = darkMode ? 'Light mode (D)' : 'Dark mode (D)';
+  // redraw all active charts
+  Object.values(CHARTS).forEach(c=>{ if(c) try{c.update();}catch(e){} });
+}
+function toggleDark() {
+  darkMode=!darkMode;
+  localStorage.setItem('ecn-dark', darkMode?'1':'0');
+  applyDark();
+  toast(darkMode ? 'Dark mode on' : 'Light mode on', darkMode ? 'ti-moon' : 'ti-sun');
+}
+
+/* ═══════════════════════════════════════════════
+   KEYBOARD SHORTCUTS MODAL
+═══════════════════════════════════════════════ */
+function showKbd() { document.getElementById('kbd-modal').classList.add('open'); }
+function closeKbd(){ document.getElementById('kbd-modal').classList.remove('open'); }
+
+const kbdPageMap = {
+  'h':'home','3':'non-svn-summary','6':'svn-summary','4':'non-svn-status',
+  '7':'svn-status','5':'future-date','1':'model-wise','2':'overall',
+  '8':'tab-overall','9':'tab-summary','0':'detailed'
+};
+
+document.addEventListener('keydown', e => {
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||e.target.tagName==='TEXTAREA') return;
+  const k = e.key.toLowerCase();
+  if(k==='escape') { closeKbd(); return; }
+  if(k==='?') { showKbd(); return; }
+  if(k==='d') { toggleDark(); return; }
+  if(k==='r') { refreshAll(); return; }
+  if(kbdPageMap[k]) { navigate(kbdPageMap[k]); return; }
+});
+
+/* ═══════════════════════════════════════════════
+   PAGINATION
+═══════════════════════════════════════════════ */
+const PAGE_SIZE = 100;
+const pgState   = {}; // key -> current page number
+
+function renderTablePaged(key, rows, cols, tagCols, tableEl, countEl) {
+  if(!pgState[key]) pgState[key]=1;
+  const total = rows.length;
+  const totalPages = Math.max(1, Math.ceil(total/PAGE_SIZE));
+  let pg = Math.min(pgState[key], totalPages);
+  pgState[key] = pg;
+  const slice = rows.slice((pg-1)*PAGE_SIZE, pg*PAGE_SIZE);
+  renderTable(tableEl, slice, cols, tagCols, null);
+
+  // count line
+  const countEl2 = document.getElementById(countEl);
+  if(countEl2) countEl2.textContent = `${total.toLocaleString()} rows`;
+
+  // pagination bar
+  const existingPg = document.getElementById('pg-'+tableEl);
+  if(existingPg) existingPg.remove();
+
+  if(totalPages<=1) return;
+  const pgDiv = document.createElement('div');
+  pgDiv.className='pagination'; pgDiv.id='pg-'+tableEl;
+
+  // prev
+  const prev=document.createElement('button');
+  prev.className='pg-btn'; prev.innerHTML='<i class="ti ti-chevron-left"></i>';
+  prev.disabled=(pg===1);
+  prev.onclick=()=>{ pgState[key]=pg-1; renderTablePaged(key,rows,cols,tagCols,tableEl,countEl); };
+  pgDiv.appendChild(prev);
+
+  // page numbers
+  const range=[];
+  range.push(1);
+  if(pg>3) range.push('…');
+  for(let i=Math.max(2,pg-1);i<=Math.min(totalPages-1,pg+1);i++) range.push(i);
+  if(pg<totalPages-2) range.push('…');
+  if(totalPages>1) range.push(totalPages);
+
+  range.forEach(v=>{
+    if(v==='…'){
+      const sp=document.createElement('span'); sp.className='pg-info'; sp.textContent='…'; pgDiv.appendChild(sp);
+    } else {
+      const b=document.createElement('button');
+      b.className='pg-btn'+(v===pg?' active':'');
+      b.textContent=v;
+      b.onclick=()=>{ pgState[key]=v; renderTablePaged(key,rows,cols,tagCols,tableEl,countEl); };
+      pgDiv.appendChild(b);
+    }
+  });
+
+  // next
+  const next=document.createElement('button');
+  next.className='pg-btn'; next.innerHTML='<i class="ti ti-chevron-right"></i>';
+  next.disabled=(pg===totalPages);
+  next.onclick=()=>{ pgState[key]=pg+1; renderTablePaged(key,rows,cols,tagCols,tableEl,countEl); };
+  pgDiv.appendChild(next);
+
+  const info=document.createElement('span');
+  info.className='pg-info'; info.textContent=`${pg}/${totalPages}`;
+  pgDiv.appendChild(info);
+
+  // insert after tbl-wrap
+  const tblWrap = document.getElementById(tableEl)?.closest('.tbl-wrap');
+  if(tblWrap) tblWrap.after(pgDiv);
+}
+
+// Override setTData to use pagination
+function setTData(key,rows,cols,tagCols,tableEl,countEl) {
+  TDATA[key]={rows,cols,tagCols,tableEl,countEl,filtered:rows};
+  pgState[key]=1;
+  filterTablePaged(key);
+}
+
+function filterTablePaged(key) {
+  const src=TDATA[key]; if(!src) return;
+  const q=(document.getElementById(key+'-search')?.value||'').toLowerCase();
+  const stF=document.getElementById(key+'-status-filter')?.value||'';
+  const tyF=document.getElementById(key+'-type-filter')?.value||'';
+  const srF=document.getElementById(key+'-src')?.value||'';
+  let rows=src.rows;
+  if(q)   rows=rows.filter(r=>Object.values(r).some(v=>(v||'').toLowerCase().includes(q)));
+  if(stF) rows=rows.filter(r=>Object.values(r).some(v=>(v||'').toUpperCase().includes(stF)));
+  if(tyF) rows=rows.filter(r=>Object.values(r).some(v=>(v||'').toUpperCase().includes(tyF)));
+  if(srF) rows=rows.filter(r=>(r.__source||'').includes(srF));
+  src.filtered=rows;
+  pgState[key]=1;
+  if(!rows.length){
+    document.getElementById(src.tableEl).innerHTML='<div class="empty"><i class="ti ti-mood-empty"></i><p>No matching records.</p></div>';
+    const el=document.getElementById(src.countEl);if(el)el.textContent='0 rows';
+    const pg=document.getElementById('pg-'+src.tableEl);if(pg)pg.remove();
+  } else {
+    renderTablePaged(key,rows,src.cols,src.tagCols,src.tableEl,src.countEl);
+  }
+}
+
+// patch filterTable to call paginated version
+function filterTable(key) { filterTablePaged(key); }
+
+// patch sortTable to use paginated version
+function sortTable(elId, colKey) {
+  const src=Object.values(TDATA).find(x=>x&&x.tableEl===elId);
+  if(!src) return;
+  src._sortCol=colKey; src._sortDir=(src._sortDir==='asc')?'desc':'asc';
+  const sorted=[...src.filtered].sort((a,b)=>{
+    const va=(a[colKey]||'').toString(),vb=(b[colKey]||'').toString();
+    const na=parseFloat(va),nb=parseFloat(vb);
+    const cmp=(!isNaN(na)&&!isNaN(nb))?(na-nb):va.localeCompare(vb);
+    return src._sortDir==='asc'?cmp:-cmp;
+  });
+  src.filtered=sorted;
+  pgState[Object.keys(TDATA).find(k=>TDATA[k]===src)]=1;
+  renderTablePaged(Object.keys(TDATA).find(k=>TDATA[k]===src),sorted,src.cols,src.tagCols,src.tableEl,src.countEl);
+}
+
+/* ═══════════════════════════════════════════════
+   SPARKLINES ON HOME KPI CARDS
+═══════════════════════════════════════════════ */
+function addSparkline(canvasId, data, color) {
+  const canvas = document.getElementById(canvasId);
+  if(!canvas || CHARTS[canvasId]) return;
+  CHARTS[canvasId] = new Chart(canvas, {
+    type:'line',
+    data:{
+      labels: data.map((_,i)=>i),
+      datasets:[{
+        data, borderColor:color, backgroundColor:color+'18',
+        borderWidth:1.5, pointRadius:0, fill:true, tension:.4
+      }]
+    },
+    options:{
+      responsive:false, animation:{duration:800},
+      plugins:{legend:{display:false},tooltip:{enabled:false}},
+      scales:{x:{display:false},y:{display:false}}
+    }
+  });
+}
+
+function buildSparklines(nsData, svData, tabData) {
+  // Get last 12 weekly close% points for each
+  const nsSpark  = closePctTrend(nsData,'DATE',r=>isImpl(r['IMPLEMENTED / NOT IMPLEMENTED']||''),'weekly').data.slice(-12);
+  const svSpark  = closePctTrend(svData,'DATE',r=>isImpl(r['IMPLEMENTED / NOT IMPLEMENTED']||''),'weekly').data.slice(-12);
+  const allCl    = [...nsData,...svData,...tabData];
+  const totSpark = closePctTrend(allCl,'DATE',r=>isImpl(r['IMPLEMENTED / NOT IMPLEMENTED']||r['SAP IMPLEMENTATION']||''),'weekly').data.slice(-12);
+  const tabSpark = closePctTrend(tabData,'DATE',r=>isImpl(r['SAP IMPLEMENTATION']||r['IMPLEMENTED / NOT IMPLEMENTED']||''),'weekly').data.slice(-12);
+
+  // Inject sparkline canvases into KPI cards if not already there
+  [
+    ['h-spark-total',  totSpark,  '#1E88E5'],
+    ['h-spark-closed', nsSpark,   '#1D9E75'],
+    ['h-spark-open',   svSpark,   '#EF9F27'],
+    ['h-spark-tab',    tabSpark,  '#7C3AED'],
+  ].forEach(([id, data, color]) => {
+    let canvas = document.getElementById(id);
+    if(!canvas) return;
+    addSparkline(id, data, color);
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   TICKER UPDATE
+═══════════════════════════════════════════════ */
+  function updateTicker(nsData, svData, tabData) {
+  const nsImpl  = nsData.filter(r=>isClose(r['CUSTOMER ECN NO.'])).length;
+  const svImpl  = svData.filter(r=>isClose(r['CUSTOMER ECN NO.'])).length;
+  const tabImpl = tabData.filter(r=>isClose(r['SAP IMPLEMENTATION'])).length;
+  const nsPct   = nsData.length  ? (nsImpl/nsData.length*100).toFixed(1)   : '—';
+  const svPct   = svData.length  ? (svImpl/svData.length*100).toFixed(1)   : '—';
+  const tabPct  = tabData.length ? (tabImpl/tabData.length*100).toFixed(1) : '—';
+  const total   = nsData.length + svData.length + tabData.length;
+  const totalCl = nsImpl + svImpl + tabImpl;
+  const totalPct= total ? (totalCl/total*100).toFixed(1) : '—';
+  const nsModels  = new Set(nsData.map(r=>r.MODEL||r.Model).filter(Boolean)).size;
+  const svModels  = new Set(svData.map(r=>r.MODEL||r.Model).filter(Boolean)).size;
+  const tabModels = new Set(tabData.map(r=>r.MODEL||r.Model).filter(Boolean)).size;
+
+  const items = [
+    `📱 Non-SVN Mobile · ${nsData.length.toLocaleString()} records · ${nsPct}% closed · ${nsModels} models`,
+    `🔄 SVN Mobile · ${svData.length.toLocaleString()} records · ${svPct}% closed · ${svModels} models`,
+    `💻 TAB Platform · ${tabData.length.toLocaleString()} records · ${tabPct}% closed · ${tabModels} models`,
+    `📊 Overall close rate across all platforms · ${totalPct}%`,
+    `🗂 Total ECN records · ${total.toLocaleString()} across ${nsModels+svModels+tabModels} models`,
+    `✅ Implemented · ${totalCl.toLocaleString()} · ⏳ Pending · ${(total-totalCl).toLocaleString()}`,
+  ];
+  const doubled = [...items,...items];
+  const tc = document.getElementById('ticker-content');
+  if(tc) tc.innerHTML = doubled.map(t=>`<span>${t}</span>`).join('');
+}
+
+/* ═══════════════════════════════════════════════
+   PATCH loadHome to add sparklines + ticker
+═══════════════════════════════════════════════ */
+const _origLoadHome = loadHome;
+// We'll patch it after data arrives — inject sparkline canvases into home KPI cards
+function injectSparkCanvases() {
+  const ids=[['h-total','h-spark-total'],['h-closed','h-spark-closed'],['h-open','h-spark-open'],['h-tab','h-spark-tab']];
+  ids.forEach(([valId, sparkId]) => {
+    const valEl=document.getElementById(valId);
+    if(valEl&&!document.getElementById(sparkId)) {
+      const wrap=document.createElement('div'); wrap.className='kpi-spark';
+      const canvas=document.createElement('canvas'); canvas.id=sparkId; canvas.width=120; canvas.height=32;
+      wrap.appendChild(canvas); valEl.parentElement.appendChild(wrap);
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════ */
+document.querySelectorAll('.sb-item[data-page]').forEach(el=>el.addEventListener('click',()=>navigate(el.dataset.page)));
+document.getElementById('date-pill').textContent=new Date().toLocaleDateString('en-IN',{month:'long',year:'numeric'});
+applyDark();
+injectSparkCanvases();
+loaded.add('home');
+
+// Load home and after data arrives, update sparklines + ticker
+(async()=>{
+  await loadHome();
+  try {
+    const [ns,sv,tab]=await Promise.all([loadCSV('nsSum'),loadCSV('svSum'),loadCSV('tabSum')]);
+    updateTicker(ns,sv,tab);
+    buildSparklines(ns,sv,tab);
+  } catch(e){ console.warn('Ticker/sparkline init failed',e); }
+})();
+</script>
+</body>
+</html>
