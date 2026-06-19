@@ -39,7 +39,14 @@ input,select{font-family:var(--font)}
 
 /* ── SHELL ── */
 .shell{display:flex;height:100vh;overflow:hidden}
+/* --- SIDEBAR TOGGLE ANIMATION --- */
+.sidebar {
+  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
+.sidebar.collapsed {
+  margin-left: calc(-1 * var(--sidebar-w));
+}
 /* ── SIDEBAR ── */
 .sidebar{width:var(--sidebar-w);min-width:var(--sidebar-w);background:var(--grey-900);display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--grey-700) transparent;border-right:1px solid var(--grey-800);flex-shrink:0}
 .sidebar::-webkit-scrollbar{width:4px}
@@ -297,7 +304,11 @@ tbody td:last-child{border-right:none}
     border-color: #2D3547 !important;
     color: #FFFFFF !important;
 }
-
+/* --- Fix the topbar icon box in dark mode --- */
+.dark .topbar-icon {
+    background-color: rgba(30, 136, 229, 0.15) !important; /* Soft dark-blue background */
+    color: #60A5FA !important; /* Bright light-blue icon */
+}
 /* 2. Force the sticky label cell to be SOLID so scrolling text hides behind it */
 .dark #det-weekly-table tr:last-child td:first-child {
     background-color: #1E324B !important; /* Solid color that perfectly matches the highlight */
@@ -491,6 +502,14 @@ tbody td:last-child{border-right:none}
 
   <!-- Topbar -->
   <div class="topbar">
+    <button class="topbar-btn" onclick="toggleSidebar()" title="Toggle Sidebar" style="margin-right: 5px;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 6l16 0"></path>
+        <path d="M4 12l16 0"></path>
+        <path d="M4 18l16 0"></path>
+      </svg>
+    </button>
+    
     <div class="topbar-icon" id="topbar-icon"><i class="ti ti-home-2"></i></div>
     <span class="topbar-title" id="topbar-title">Home</span>
     <div class="topbar-sep"></div>
@@ -1095,7 +1114,23 @@ const URLS = {
   tabStat:  TAB_BASE    + '450360842',
   tabFut:   TAB_BASE    + '1037340646',
 };
-
+/* ═══════════════════════════════════════════════
+   SIDEBAR TOGGLE LOGIC
+═══════════════════════════════════════════════ */
+function toggleSidebar() {
+  const sidebar = document.querySelector('.sidebar');
+  sidebar.classList.toggle('collapsed');
+  
+  // Wait for the 0.3s CSS sliding animation to finish, 
+  // then force all charts to resize to fill the extra screen space
+  setTimeout(() => {
+    Object.values(CHARTS).forEach(chart => { 
+      if (chart) {
+        try { chart.resize(); } catch(e) {} 
+      }
+    });
+  }, 310); 
+}
 /* ═══════════════════════════════════════════════
    CACHE & STATE
 ═══════════════════════════════════════════════ */
@@ -1961,7 +1996,7 @@ function _renderWeeklyTable(base) {
   });
 
   // build HTML table – Category col spans 2 rows each group
-  const COLS_SHOW = sortedWeeks; // cap at 20 weeks wide .slice(0, 20)
+  const COLS_SHOW = sortedWeeks;///.slice(0, 20); // cap at 20 weeks wide
 
   let html = `<table style="font-size:12px;min-width:600px;border-collapse:collapse;width:100%">
 <thead><tr>
@@ -2184,19 +2219,19 @@ function showErr(elId, name) {
    PAGE ROUTER
 ═══════════════════════════════════════════════ */
 const PAGE_META = {
-  'home':           ['home-2','Home','Overview Dashboard'],
-  'non-svn-summary':['chart-line','NON SVN Summary','Mobile · Close % tracking'],
-  'svn-summary':    ['chart-bar','SVN Summary','Mobile · SVN close tracking'],
-  'non-svn-status': ['clipboard-list','NON SVN Status','Mobile · Part-level detail'],
-  'svn-status':     ['clipboard-check','SVN Status','Mobile · SVN part detail'],
-  'future-date':    ['calendar-due','Future Date','Mobile · Upcoming schedule'],
-  'model-wise':     ['device-mobile-stats','Model Wise','Mobile · Per-model view'],
-  'overall':        ['layout-dashboard','Overall','Mobile · Full data view'],
-  'tab-overall':    ['device-tablet','TAB Overall','Tab · Full data view'],
-  'tab-summary':    ['chart-line','TAB Summary','Tab · Close % tracking'],
-  'tab-status':     ['clipboard-list','TAB Status','Tab · Part-level detail'],
-  'tab-future':     ['calendar-due','TAB Future Date','Tab · Upcoming schedule'],
-  'detailed':       ['table','Detailed Records','All sources combined'],
+  'home':           ['🏠','Home','Overview Dashboard'],
+  'non-svn-summary':['📈','NON SVN Summary','Mobile · Close % tracking'],
+  'svn-summary':    ['📊','SVN Summary','Mobile · SVN close tracking'],
+  'non-svn-status': ['📋','NON SVN Status','Mobile · Part-level detail'],
+  'svn-status':     ['✅','SVN Status','Mobile · SVN part detail'],
+  'future-date':    ['📅','Future Date','Mobile · Upcoming schedule'],
+  'model-wise':     ['📱','Model Wise','Mobile · Per-model view'],
+  'overall':        ['🗂️','Overall','Mobile · Full data view'],
+  'tab-overall':    ['💻','TAB Overall','Tab · Full data view'],
+  'tab-summary':    ['📉','TAB Summary','Tab · Close % tracking'],
+  'tab-status':     ['📋','TAB Status','Tab · Part-level detail'],
+  'tab-future':     ['📅','TAB Future Date','Tab · Upcoming schedule'],
+  'detailed':       ['🔍','Detailed Records','All sources combined'],
 };
 
 const PAGE_LOADERS = {
@@ -2222,8 +2257,8 @@ function navigate(page) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const el=document.getElementById('page-'+page);
   if(el) el.classList.add('active');
-  const [icon,title,crumb]=PAGE_META[page]||['home-2',page,''];
-  document.getElementById('topbar-icon').querySelector('i').className='ti ti-'+icon;
+  const [icon,title,crumb]=PAGE_META[page]||['🏠',page,''];
+  document.getElementById('topbar-icon').innerHTML = icon; // Injects the emoji directly!
   document.getElementById('topbar-title').textContent=title;
   document.getElementById('topbar-crumb').textContent=crumb;
   if(!loaded.has(page) && PAGE_LOADERS[page]) {
