@@ -1858,6 +1858,7 @@ async function loadDetailed() {
     if (yearSel) {
       yearSel.innerHTML = '<option value="all">All Years</option>' +
         years.map(y => `<option value="${y}">${y}</option>`).join('');
+      yearSel.value = '2026';
     }
 
     // populate week dropdown (sorted newest first)
