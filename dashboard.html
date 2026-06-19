@@ -1962,7 +1962,7 @@ function _renderWeeklyTable(base) {
   });
 
   // build HTML table – Category col spans 2 rows each group
-  const COLS_SHOW = sortedWeeks.slice(0, 20); // cap at 20 weeks wide
+  const COLS_SHOW = sortedWeeks; // cap at 20 weeks wide .slice(0, 20)
 
   let html = `<table style="font-size:12px;min-width:600px;border-collapse:collapse;width:100%">
 <thead><tr>
