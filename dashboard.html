@@ -299,16 +299,17 @@ tbody td:last-child{border-right:none}
 
 /* 1. Force the white cells to become dark and the text to be white */
 .dark #det-weekly-table td,
+.dark #det-weekly-table tr {
+    background-color: #1E2330 !important; 
+    border-color: #2D3547 !important;
+    color: #FFFFFF !important;
+}
+/* --- Fix the topbar icon box in dark mode --- */
 /* --- Remove the background box completely for the topbar icon --- */
 .topbar-icon, .dark .topbar-icon {
     background: transparent !important;
     box-shadow: none !important;
     border: none !important;
-}
-/* --- Fix the topbar icon box in dark mode --- */
-.dark .topbar-icon {
-    background-color: rgba(30, 136, 229, 0.15) !important; /* Soft dark-blue background */
-    color: #60A5FA !important; /* Bright light-blue icon */
 }
 /* 2. Force the sticky label cell to be SOLID so scrolling text hides behind it */
 .dark #det-weekly-table tr:last-child td:first-child {
