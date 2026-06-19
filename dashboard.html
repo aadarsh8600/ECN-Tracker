@@ -298,12 +298,10 @@ tbody td:last-child{border-right:none}
     color: #FFFFFF !important;
 }
 
-/* 2. Fix the light-blue "Ontime Rate" row at the bottom so it fits dark mode */
-.dark #det-weekly-table tr:last-child td,
-.dark #det-weekly-table tr:last-child {
-    background-color: rgba(30, 136, 229, 0.15) !important; /* Subtle dark-blue highlight */
-    color: #60A5FA !important; /* Bright light-blue text */
-    border-color: #2D3547 !important;
+/* 2. Force the sticky label cell to be SOLID so scrolling text hides behind it */
+.dark #det-weekly-table tr:last-child td:first-child {
+    background-color: #1E324B !important; /* Solid color that perfectly matches the highlight */
+    z-index: 5 !important; /* Forces it to stay in front of the scrolling cells */
 }
 /* --- FORCE LOGO TITLE TO WHITE IN DARK MODE --- */
 .dark .sb-logo-title {
