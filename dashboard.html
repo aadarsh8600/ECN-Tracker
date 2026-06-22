@@ -522,7 +522,7 @@ tbody td:last-child{border-right:none}
       <button class="topbar-btn" id="dark-toggle" onclick="toggleDark()" title="Toggle dark mode (D)">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z"></path></svg>
       </button>
-      <button class="topbar-btn" onclick="window.print()" title="Print / Save as PDF">
+      <button class="topbar-btn" onclick="prepareAndPrint()" title="Print / Save as PDF">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 17h2a2 2 0 0 0 2 -2v-4a2 2 0 0 0 -2 -2h-14a2 2 0 0 0 -2 2v4a2 2 0 0 0 2 2h2"></path><path d="M17 9v-4a2 2 0 0 0 -2 -2h-6a2 2 0 0 0 -2 2v4"></path><path d="M7 13m0 2a2 2 0 0 1 2 -2h6a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2z"></path></svg>
       </button>
       <button class="topbar-btn" id="kbd-btn" onclick="showKbd()" title="Keyboard shortcuts (?)">
@@ -1159,11 +1159,21 @@ function toast(msg, icon='ti-circle-check') {
 let globalDebounceTimer;
 
 // Delays the filter slightly while typing the model name to prevent lag
-function debouncedGlobalFilter() {
-  clearTimeout(globalDebounceTimer);
-  globalDebounceTimer = setTimeout(() => {
-    applyGlobalFilter();
-  }, 400); 
+function applyGlobalFilter() {
+  toast('Applying filters to all data...', 'ti-filter');
+  
+  // 1. Tell the app that all background pages need to be re-loaded 
+  // with the new filter next time they are viewed (or printed)
+  Object.keys(PAGE_LOADERS).forEach(page => {
+    if (page !== curPage) {
+      loaded.delete(page);
+    }
+  });
+
+  // 2. Immediately reload the page you are currently looking at
+  if (PAGE_LOADERS[curPage]) {
+    PAGE_LOADERS[curPage]().catch(e => console.error(e));
+  }
 }
 
 function applyGlobalFilter() {
@@ -2251,6 +2261,45 @@ const PAGE_LOADERS = {
   'tab-future':     loadTabFut,
   'detailed':       loadDetailed,
 };
+
+/* ═══════════════════════════════════════════════
+   SMART PRINTING LOGIC
+═══════════════════════════════════════════════ */
+async function prepareAndPrint() {
+  toast('Applying global filters to all pages...', 'ti-printer');
+
+  // 1. Clear the "already loaded" memory. This forces the dashboard 
+  // to rebuild every single page from scratch using the absolute latest filter inputs.
+  loaded.clear();
+
+  // 2. Trigger every page loader simultaneously
+  const pendingLoaders = [];
+  Object.keys(PAGE_LOADERS).forEach(page => {
+    loaded.add(page); // Mark as loaded
+    pendingLoaders.push(PAGE_LOADERS[page]()); 
+  });
+
+  // 3. Wait for all 13 pages to finish processing the filtered data
+  await Promise.all(pendingLoaders).catch(e => console.error(e));
+
+  // 4. Temporarily reveal all pages to fix Chart.js print scaling
+  const allPages = document.querySelectorAll('.page');
+  allPages.forEach(p => p.style.display = 'flex');
+
+  // Force charts to adapt to the newly visible space
+  Object.values(CHARTS).forEach(chart => {
+    if (chart) { try { chart.resize(); } catch(e) {} }
+  });
+
+  // 5. Give the browser 500ms to physically draw the graphics, then open the print dialog
+  setTimeout(() => {
+    window.print();
+    
+    // Cleanup: hide background pages again after printing
+    allPages.forEach(p => p.style.display = '');
+    toast('Ready to print!', 'ti-check');
+  }, 500);
+}
 
 function navigate(page) {
   if (page===curPage && loaded.has(page)) return;
