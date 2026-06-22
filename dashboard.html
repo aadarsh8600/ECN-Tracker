@@ -478,9 +478,12 @@ tbody td:last-child{border-right:none}
     <div class="sb-label">Global Filters</div>
     <div style="display:flex; flex-direction:column; gap:8px;">
       
-      <input type="text" id="global-model" oninput="debouncedGlobalFilter()" placeholder="Search Model..." title="Filter by Model" 
-             style="width:100%; font-size:11px; padding:7px; background:rgba(255,255,255,0.05); color:#FFFFFF; border:1px solid var(--grey-700); border-radius:4px; outline:none; font-family:var(--font);">
-
+      <input type="text" id="global-model" 
+       oninput="debouncedGlobalFilter()" 
+       onkeydown="if(event.key === 'Enter') { clearTimeout(globalDebounceTimer); applyGlobalFilter(); }"
+       placeholder="Search Model..." title="Filter by Model" 
+       style="width:100%; font-size:11px; padding:7px; background:rgba(255,255,255,0.05); color:#FFFFFF; border:1px solid var(--grey-700); border-radius:4px; outline:none; font-family:var(--font);">
+      
       <input type="date" id="global-start" onchange="applyGlobalFilter()" title="Start Date" 
              style="width:100%; font-size:11px; padding:7px; background:rgba(255,255,255,0.05); color:#FFFFFF; color-scheme:dark; border:1px solid var(--grey-700); border-radius:4px; outline:none; font-family:var(--font);">
       
@@ -1158,9 +1161,16 @@ function toast(msg, icon='ti-circle-check') {
 ═══════════════════════════════════════════════ */
 let globalDebounceTimer;
 
-// Delays the filter slightly while typing the model name to prevent lag
+// Triggers the search automatically 500ms after you stop typing
+function debouncedGlobalFilter() {
+  clearTimeout(globalDebounceTimer);
+  globalDebounceTimer = setTimeout(() => {
+    applyGlobalFilter();
+  }, 500);
+}
+
 function applyGlobalFilter() {
-  toast('Applying filters to all data...', 'ti-filter');
+  toast('Applying global filters...', 'ti-filter');
   
   // 1. Tell the app that all background pages need to be re-loaded 
   // with the new filter next time they are viewed (or printed)
@@ -1174,6 +1184,13 @@ function applyGlobalFilter() {
   if (PAGE_LOADERS[curPage]) {
     PAGE_LOADERS[curPage]().catch(e => console.error(e));
   }
+}
+
+function clearGlobalFilter() {
+  document.getElementById('global-model').value = '';
+  document.getElementById('global-start').value = '';
+  document.getElementById('global-end').value = '';
+  applyGlobalFilter();
 }
 
 function applyGlobalFilter() {
