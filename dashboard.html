@@ -1478,14 +1478,25 @@ function filterTable(key) {
 }
 
 function downloadCSV(key) {
-  const src=TDATA[key]; if(!src||!src.rows.length) return;
-  const cols=src.cols||Object.keys(src.rows[0]);
-  let csv=cols.join(',')+'\n';
-  src.rows.forEach(r=>{ csv+=cols.map(c=>'"'+(r[c]||'').toString().replace(/"/g,'""')+'"').join(',')+'\n'; });
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-  a.download=key+'_ecn_export.csv'; a.click();
-  toast('CSV downloaded','ti-download');
+  const src = TDATA[key]; 
+  // Changed src.rows to src.filtered so it respects table searches
+  if(!src || !src.filtered.length) {
+      toast('No data to export', 'ti-alert-circle');
+      return; 
+  }
+  
+  const cols = src.cols || Object.keys(src.filtered[0]);
+  let csv = cols.join(',') + '\n';
+  
+  src.filtered.forEach(r => { 
+      csv += cols.map(c => '"' + (r[c]||'').toString().replace(/"/g,'""') + '"').join(',') + '\n'; 
+  });
+  
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download = key + '_ecn_export.csv'; 
+  a.click();
+  toast('Filtered CSV downloaded', 'ti-download');
 }
 
 function setTData(key,rows,cols,tagCols,tableEl,countEl) {
