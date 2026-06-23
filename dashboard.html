@@ -478,7 +478,7 @@ tbody td:last-child{border-right:none}
     <div class="sb-label">Global Filters</div>
     <div style="display:flex; flex-direction:column; gap:8px;">
       
-      <input type="text" id="global-model" 
+      <input type="search" id="global-model" 
        oninput="debouncedGlobalFilter()" 
        onkeydown="if(event.key === 'Enter') { clearTimeout(globalDebounceTimer); applyGlobalFilter(); }"
        placeholder="Search Model..." title="Filter by Model" 
