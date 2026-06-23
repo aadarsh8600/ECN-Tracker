@@ -1115,6 +1115,9 @@ tbody td:last-child{border-right:none}
           <div id="det-tab-after" onclick="switchDetTab('after')" style="padding:7px 18px;font-size:12px;font-weight:600;cursor:pointer;color:var(--grey-500);border-bottom:2px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:6px">
             <i class="ti ti-alert-triangle" style="font-size:14px"></i> Implemented After 48 Hours <span id="det-after-cnt" style="font-size:11px;background:var(--amber-100);color:var(--amber-700);padding:1px 7px;border-radius:10px;margin-left:4px"></span>
           </div>
+          <div id="det-tab-pending" onclick="switchDetTab('pending')" style="padding:7px 18px; font-size:12px; font-weight:600; cursor:pointer; color:var(--grey-500); border-bottom:2px solid transparent; margin-bottom:-2px; display:flex; align-items:center; gap:6px">
+            <i class="ti ti-clock" style="font-size:14px"></i> Not Implemented Yet <span id="det-pending-cnt" style="font-size:11px; background:var(--red-100); color:var(--red-700); padding:1px 7px; border-radius:10px; margin-left:4px"></span>
+          </div>
         </div>
 
         <div class="tbl-wrap"><div id="det-table"><div class="loading"><div class="spinner"></div><p>Loading data…</p></div></div></div>
@@ -2192,21 +2195,29 @@ function _renderDetTrendChart(base) {
 
 function switchDetTab(tab) {
   _detTab = tab;
-  // style tabs
+  
   const tabW = document.getElementById('det-tab-within');
   const tabA = document.getElementById('det-tab-after');
+  const tabP = document.getElementById('det-tab-pending');
+  
+  // Reset all active styling defaults
+  tabW.style.borderBottomColor='transparent'; tabW.style.color='var(--grey-500)';
+  tabA.style.borderBottomColor='transparent'; tabA.style.color='var(--grey-500)';
+  if (tabP) { tabP.style.borderBottomColor='transparent'; tabP.style.color='var(--grey-500)'; }
+  
+  // Toggle style dynamically depending on the selected tab
   if (tab === 'within') {
     tabW.style.borderBottomColor='var(--teal-500)'; tabW.style.color='var(--teal-700)';
-    tabA.style.borderBottomColor='transparent';     tabA.style.color='var(--grey-500)';
-  } else {
+  } else if (tab === 'after') {
     tabA.style.borderBottomColor='var(--amber-500)'; tabA.style.color='var(--amber-700)';
-    tabW.style.borderBottomColor='transparent';      tabW.style.color='var(--grey-500)';
+  } else if (tab === 'pending' && tabP) {
+    tabP.style.borderBottomColor='var(--red-500)'; tabP.style.color='var(--red-700)';
   }
+  
   filterDetailed();
 }
 
 function filterDetailed(baseOverride) {
-  // base is view+year filtered set (passed on renderDetailed call) or re-use raw
   const view = _getDetView();
   const year = _getDetYear();
   let base = baseOverride !== undefined ? baseOverride : _detRaw;
@@ -2215,28 +2226,34 @@ function filterDetailed(baseOverride) {
     if (year !== 'all') base = base.filter(r=>{ const d=_detParseDate(r.__received); return d&&d.getFullYear()===parseInt(year); });
   }
 
-  // split into within/after
-  const within = base.filter(r=>r.__timeDiff!==null&&r.__timeDiff<=2);
-  const after  = base.filter(r=>r.__timeDiff!==null&&r.__timeDiff>2);
+  // Split your dataset into three precise groups
+  const within = base.filter(r=>r.__timeDiff!==null&&r.__timeDiff <= 2);
+  const after  = base.filter(r=>r.__timeDiff!==null&&r.__timeDiff > 2);
+  const pending = base.filter(r=>r.__timeDiff === null); // Null means no tracking implementation date exists yet
 
-  // update tab counts
+  // Update badge counter elements on the tab row headers
   const cntW = document.getElementById('det-within-cnt');
   const cntA = document.getElementById('det-after-cnt');
+  const cntP = document.getElementById('det-pending-cnt');
   if (cntW) cntW.textContent = within.length.toLocaleString();
   if (cntA) cntA.textContent = after.length.toLocaleString();
+  if (cntP) cntP.textContent = pending.length.toLocaleString();
 
-  // apply search + week filter
+  // Apply lookups based on active tab state
   const q    = (document.getElementById('det-ecn-search')?.value||'').toLowerCase();
   const wkF  = document.getElementById('det-week-filter')?.value||'';
 
-  let rows = _detTab === 'within' ? within : after;
+  let rows = within;
+  if (_detTab === 'within') rows = within;
+  else if (_detTab === 'after') rows = after;
+  else if (_detTab === 'pending') rows = pending;
+
   if (q)   rows = rows.filter(r=>Object.values(r).some(v=>(v||'').toString().toLowerCase().includes(q)));
   if (wkF) rows = rows.filter(r=>r.__weekLabel===wkF);
 
   _detFiltered = rows;
   _detPage = 1;
 
-  // store for CSV download
   const DISPLAY_COLS = ['WEEK NO.','DATE','MODEL','ECN NO.','SAP IMPLEMENTATION DATE','WIND-CHILL IMPLEMENTATION DATE','IMPLEMENTED / NOT IMPLEMENTED'];
   const cols = DISPLAY_COLS.filter(c=>(_detRaw[0]&&c in _detRaw[0])||c==='WEEK NO.');
   TDATA['det'] = { rows: _detFiltered, cols, tagCols:{
