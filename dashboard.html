@@ -244,8 +244,22 @@ tbody td:last-child{border-right:none}
 
 /* ── RESPONSIVE ── */
 @media(max-width:1100px){.g4{grid-template-columns:repeat(2,1fr)}.two-col{grid-template-columns:1fr}.chart-filter-layout{grid-template-columns:1fr}}
-@media(max-width:800px){.sidebar{display:none}.g5{grid-template-columns:repeat(2,1fr)}}
-
+@media(max-width:800px) {
+  .g5 { grid-template-columns: repeat(2,1fr); }
+  .sidebar {
+    position: fixed;
+    z-index: 9999;
+    height: 100vh;
+    box-shadow: var(--sh-lg);
+    transform: translateX(-100%);
+    margin-left: 0 !important; 
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex !important; /* Overrides any display:none */
+  }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+}
 /* ── TOPBAR ICON BUTTONS ── */
 .topbar-btn{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:var(--r-sm);color:var(--grey-500);background:transparent;transition:all var(--tr);border:1px solid transparent}
 .topbar-btn:hover{background:var(--grey-100);color:var(--grey-700);border-color:var(--grey-200)}
@@ -1122,23 +1136,44 @@ const URLS = {
   tabStat:  TAB_BASE    + '450360842',
   tabFut:   TAB_BASE    + '1037340646',
 };
+
 /* ═══════════════════════════════════════════════
    SIDEBAR TOGGLE LOGIC
 ═══════════════════════════════════════════════ */
 function toggleSidebar() {
   const sidebar = document.querySelector('.sidebar');
-  sidebar.classList.toggle('collapsed');
   
-  // Wait for the 0.3s CSS sliding animation to finish, 
-  // then force all charts to resize to fill the extra screen space
-  setTimeout(() => {
-    Object.values(CHARTS).forEach(chart => { 
-      if (chart) {
-        try { chart.resize(); } catch(e) {} 
-      }
-    });
-  }, 310); 
+  if (window.innerWidth <= 800) {
+      // Mobile logic: Slide it over the screen
+      sidebar.classList.toggle('mobile-open');
+  } else {
+      // Desktop logic: Collapse it to the left
+      sidebar.classList.toggle('collapsed');
+      setTimeout(() => {
+        Object.values(CHARTS).forEach(chart => { 
+          if (chart) try { chart.resize(); } catch(e) {} 
+        });
+      }, 310); 
+  }
 }
+
+// Close mobile sidebar when clicking anywhere outside of it
+document.addEventListener('click', (e) => {
+    const sidebar = document.querySelector('.sidebar');
+    
+    // If we are on desktop, or the sidebar is already closed, do nothing
+    if (!sidebar || window.innerWidth > 800 || !sidebar.classList.contains('mobile-open')) {
+        return; 
+    }
+
+    // Safely check if the user specifically clicked the Hamburger menu button
+    const clickedHamburger = e.target.closest('.topbar-btn[title="Toggle Sidebar"]');
+    
+    // If the click was OUTSIDE the sidebar AND they didn't click the hamburger button
+    if (!sidebar.contains(e.target) && !clickedHamburger) {
+        sidebar.classList.remove('mobile-open');
+    }
+});
 /* ═══════════════════════════════════════════════
    CACHE & STATE
 ═══════════════════════════════════════════════ */
@@ -2350,12 +2385,17 @@ function navigate(page) {
   const el=document.getElementById('page-'+page);
   if(el) el.classList.add('active');
   const [icon,title,crumb]=PAGE_META[page]||['🏠',page,''];
-  document.getElementById('topbar-icon').innerHTML = icon; // Injects the emoji directly!
+  document.getElementById('topbar-icon').innerHTML = icon; 
   document.getElementById('topbar-title').textContent=title;
   document.getElementById('topbar-crumb').textContent=crumb;
   if(!loaded.has(page) && PAGE_LOADERS[page]) {
     loaded.add(page);
     PAGE_LOADERS[page]().catch(e=>{console.error(e);});
+  }
+
+  // NEW: Automatically hide the sidebar on mobile after clicking a link
+  if (window.innerWidth <= 800) {
+      document.querySelector('.sidebar').classList.remove('mobile-open');
   }
 }
 
