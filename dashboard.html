@@ -489,7 +489,10 @@ tbody td:last-child{border-right:none}
       
       <input type="date" id="global-end" onchange="applyGlobalFilter()" title="End Date" 
              style="width:100%; font-size:11px; padding:7px; background:rgba(255,255,255,0.05); color:#FFFFFF; color-scheme:dark; border:1px solid var(--grey-700); border-radius:4px; outline:none; font-family:var(--font);">
-      
+      <div style="display:flex; gap:6px; margin-top:4px;">
+        <button class="pill pill-blue" style="cursor:pointer; border:none;" onclick="setGlobalDateRange(7)">Last 7 Days</button>
+        <button class="pill pill-blue" style="cursor:pointer; border:none;" onclick="setGlobalDateRange(30)">Last 30 Days</button>
+      </div>
       <button class="sb-refresh" onclick="clearGlobalFilter()" style="margin-top:2px;">
         <i class="ti ti-filter-off"></i> Clear Filters
       </button>
@@ -1246,7 +1249,17 @@ function getGlobalFilteredData(rawData) {
     return modelMatch && dateMatch;
   });
 }
+function setGlobalDateRange(daysAgo) {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - daysAgo);
 
+    // Format dates to YYYY-MM-DD for the HTML inputs
+    document.getElementById('global-end').value = end.toISOString().split('T')[0];
+    document.getElementById('global-start').value = start.toISOString().split('T')[0];
+    
+    applyGlobalFilter();
+}
 /* ═══════════════════════════════════════════════
    CSV LOADER (Overwritten to apply global filter)
 ═══════════════════════════════════════════════ */
