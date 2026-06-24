@@ -269,7 +269,9 @@ tbody td:last-child{border-right:none}
 .topbar-btn i{font-size:15px}
 
 /* ── DARK MODE ── */
-.dark .toast {color: #0D1117 !important;}
+.dark .toast {
+    color: #0D1117 !important; /* Turns the toast text dark so it's readable on the white background */
+}
 .dark{--white:#1E2330;--grey-50:#171B26;--grey-100:#252B38;--grey-200:#323A4A;--grey-300:#4A5568;--grey-400:#64748B;--grey-500:#94A3B8;--grey-600:#CBD5E1;--grey-700:#E2E8F0;--grey-800:#F1F5F9;--grey-900:#F8FAFC;--grey-950:#FFFFFF}
 .dark .sidebar{background:#0D1117;border-right-color:#1A1F2B}
 .dark .sb-item.active{background:rgba(30,136,229,.15)}
@@ -706,12 +708,23 @@ tbody td:last-child{border-right:none}
       </div>
       <div class="card">
         <div class="tbl-toolbar">
-          <div class="search-box"><i class="ti ti-search"></i><input type="text" placeholder="Search model, ECN, status…" id="ns-search" oninput="filterTable('ns')"></div>
+          <div class="search-box">
+            <i class="ti ti-search"></i>
+            <input type="text" placeholder="Search model, ECN, status…" id="ns-search" oninput="filterTable('ns')">
+          </div>
+          
+          <select class="tbl-filter-select" id="ns-sort" onchange="applyToolbarSort('ns')">
+            <option value="">Sort by Date...</option>
+            <option value="DATE_desc">Date: Newest First</option>
+            <option value="DATE_asc">Date: Oldest First</option>
+          </select>
+
           <select class="tbl-filter-select" id="ns-status-filter" onchange="filterTable('ns')">
             <option value="">All Status</option>
             <option value="IMPLEMENTED">Implemented</option>
             <option value="NOT">Not Implemented</option>
           </select>
+          
           <span class="tbl-count" id="ns-count"></span>
           <button class="dl-btn" onclick="downloadCSV('ns')"><i class="ti ti-download"></i> Export CSV</button>
         </div>
@@ -749,6 +762,11 @@ tbody td:last-child{border-right:none}
       <div class="card">
         <div class="tbl-toolbar">
           <div class="search-box"><i class="ti ti-search"></i><input type="text" placeholder="Search model, ECN…" id="sv-search" oninput="filterTable('sv')"></div>
+          <select class="tbl-filter-select" id="sv-sort" onchange="applyToolbarSort('sv')">
+            <option value="">Sort by Date...</option>
+            <option value="DATE_desc">Date: Newest First</option>
+            <option value="DATE_asc">Date: Oldest First</option>
+          </select>
           <select class="tbl-filter-select" id="sv-status-filter" onchange="filterTable('sv')">
             <option value="">All Status</option>
             <option value="IMPLEMENTED">Implemented</option>
@@ -963,6 +981,11 @@ tbody td:last-child{border-right:none}
       <div class="card">
         <div class="tbl-toolbar">
           <div class="search-box"><i class="ti ti-search"></i><input type="text" placeholder="Search…" id="ts-search" oninput="filterTable('ts')"></div>
+          <select class="tbl-filter-select" id="ts-sort" onchange="applyToolbarSort('ts')">
+            <option value="">Sort by Date...</option>
+            <option value="DATE_desc">Date: Newest First</option>
+            <option value="DATE_asc">Date: Oldest First</option>
+          </select>
           <select class="tbl-filter-select" id="ts-status-filter" onchange="filterTable('ts')">
             <option value="">All Status</option>
             <option value="IMPLEMENTED">Implemented</option>
@@ -1240,7 +1263,39 @@ function applyGlobalFilter() {
     PAGE_LOADERS[curPage]().catch(e => console.error(e));
   }
 }
+function applyToolbarSort(key) {
+  const select = document.getElementById(key + '-sort');
+  if (!select || !select.value) return;
 
+  // Extract the column name and the sort direction from the dropdown
+  const lastUnderscore = select.value.lastIndexOf('_');
+  const col = select.value.substring(0, lastUnderscore); // Gets "DATE"
+  const dir = select.value.substring(lastUnderscore + 1); // Gets "desc" or "asc"
+
+  const src = TDATA[key]; 
+  if (!src || !src.filtered) return;
+
+  // Perform the sort
+  const sorted = [...src.filtered].sort((a, b) => {
+    // We use the parseDate utility you already have in your code!
+    const dateA = parseDate(a[col] || '');
+    const dateB = parseDate(b[col] || '');
+    
+    const timeA = dateA ? dateA.getTime() : 0;
+    const timeB = dateB ? dateB.getTime() : 0;
+    
+    return dir === 'asc' ? (timeA - timeB) : (timeB - timeA);
+  });
+
+  // Save the sorted data back to state
+  src.filtered = sorted;
+  
+  // Reset pagination to page 1 to prevent getting stuck
+  pgState[key] = 1; 
+  
+  // Render the updated table using your paginated renderer
+  renderTablePaged(key, sorted, src.cols, src.tagCols, src.tableEl, src.countEl);
+}
 function clearGlobalFilter() {
   document.getElementById('global-model').value = '';
   document.getElementById('global-start').value = '';
