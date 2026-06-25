@@ -1070,9 +1070,12 @@ tbody td:last-child{border-right:none}
             <option value="all">All Years</option>
           </select>
           <select class="tbl-filter-select" id="det-view" onchange="renderDetailed()" style="min-width:210px">
-            <option value="all">All Combined (SVN + Non-SVN)</option>
+            <option value="all">All Mobile (SVN + Non-SVN)</option>
+            <option value="all-total">All Platforms (SVN + Non-SVN + TAB)</option>
+            
             <option value="Non-SVN">Non-SVN Only</option>
             <option value="SVN">SVN Only</option>
+            <option value="TAB">TAB Only</option>
           </select>
         </div>
       </div>
@@ -1104,10 +1107,16 @@ tbody td:last-child{border-right:none}
       <!-- ── Weekly Summary Table ── -->
       <div class="card" style="padding:14px 16px">
         <div class="card-hd" style="margin-bottom:10px">
-          <div class="card-title"><i class="ti ti-calendar-week"></i> <span id="det-weekly-title">Weekly Implementation Summary</span></div>
+          <div class="card-title"><i class="ti ti-calendar-week"></i> <span id="det-weekly-title">Implementation Summary</span></div>
+          
+          <select class="tbl-filter-select" id="det-summary-mode" onchange="changeSummaryMode()" style="min-width:130px">
+            <option value="weekly">Weekly View</option>
+            <option value="monthly">Monthly View</option>
+          </select>
+
         </div>
         <div style="overflow-x:auto;overflow-y:auto;max-height:360px;border-radius:6px;border:1px solid var(--grey-200)">
-          <div id="det-weekly-table"><div class="loading"><div class="spinner"></div><p>Loading weekly data…</p></div></div>
+          <div id="det-weekly-table"><div class="loading"><div class="spinner"></div><p>Loading data…</p></div></div>
         </div>
       </div>
 
@@ -1630,29 +1639,32 @@ function setTData(key,rows,cols,tagCols,tableEl,countEl) {
 
 async function loadHome() {
   try {
-    const [ns,sv,tab]=await Promise.all([loadCSV('nsSum'),loadCSV('svSum'),loadCSV('tabSum')]);
+    const [ns, sv, tab] = await Promise.all([loadCSV('nsSum'), loadCSV('svSum'), loadCSV('tabSum')]);
     
-    // THE FIX: Bulletproof column finders. This explicitly BANS the word 'date' from being used as a status column.
-    const getCol = arr => Object.keys(arr[0]||{}).find(k => /implement|close|status/i.test(k) && !/date/i.test(k)) || 'IMPLEMENTED / NOT IMPLEMENTED';
-    const getDate = arr => Object.keys(arr[0]||{}).find(k => /^date$/i.test(k)) || 'DATE';
+    // Use "CUSTOMER ECN NO." for all platforms to determine if Closed
+    const ecnCol = 'CUSTOMER ECN NO.';
 
-    const nsCl = ns.filter(r=>isClose(r['CUSTOMER ECN NO.'])).length;
-    const svCl = sv.filter(r=>isClose(r['CUSTOMER ECN NO.'])).length;
-    const tabCl = tab.filter(r=>isClose(r['SAP IMPLEMENTATION'])).length;
+    const nsCl = ns.filter(r => isClose(r[ecnCol] || '')).length;
+    const svCl = sv.filter(r => isClose(r[ecnCol] || '')).length;
+    const tabCl = tab.filter(r => isClose(r[ecnCol] || '')).length;
     
-    const total=ns.length+sv.length+tab.length;
-    const closed=nsCl+svCl+tabCl;
-    const open=total-closed;
-    const rate=total?(closed/total*100).toFixed(1):0;
+    const total = ns.length + sv.length + tab.length;
+    const closed = nsCl + svCl + tabCl;
+    const open = total - closed;
+    const rate = total ? (closed / total * 100).toFixed(1) : 0;
 
-    document.getElementById('h-total').textContent=fmt(total);
-    document.getElementById('h-total-sub').textContent=`${ns.length} Non-SVN · ${sv.length} SVN · ${tab.length} TAB`;
-    document.getElementById('h-closed').textContent=fmt(closed);
-    document.getElementById('h-rate').textContent=`↑ ${rate}% overall close rate`;
-    document.getElementById('h-open').textContent=fmt(open);
-    document.getElementById('h-open-sub').textContent=`${(open/total*100).toFixed(1)}% still open`;
-    document.getElementById('h-tab').textContent=fmt(tab.length);
+    // Update KPI Cards
+    document.getElementById('h-total').textContent = fmt(total);
+    document.getElementById('h-total-sub').textContent = `${ns.length} Non-SVN · ${sv.length} SVN · ${tab.length} TAB`;
+    document.getElementById('h-closed').textContent = fmt(closed);
+    document.getElementById('h-rate').textContent = `↑ ${rate}% overall close rate`;
+    
+    // This will now correctly calculate the 20 pending items if 20 are truly open
+    document.getElementById('h-open').textContent = fmt(open);
+    document.getElementById('h-open-sub').textContent = `${total ? (open/total*100).toFixed(1) : 0}% still open`;
+    document.getElementById('h-tab').textContent = fmt(tab.length);
 
+    // ... (rest of the function for Donut chart and Platform bars remains the same)
     // Donut
     const donutLabels=['Implemented','Not Implemented'];
     const donutData=[closed,open];
@@ -1674,44 +1686,23 @@ async function loadHome() {
       ['TAB Platform',tabPct,'f-purple'],
       ['Overall',+rate,'f-amber'],
     ].map(([l,p,c])=>`<div class="bar-row"><div class="bar-lbl">${l}</div><div class="bar-track"><div class="bar-fill ${c}" style="width:${p}%"></div></div><div class="bar-pct">${p}%</div></div>`).join('');
-
-    const renderHome=p=>{// 1. Auto-populate the Year Filter Dropdown
-    const allDates = [...ns, ...sv, ...tab].map(r => parseDate(r['DATE'] || r['Date']));
-    const years = [...new Set(allDates.filter(d => d && !isNaN(d)).map(d => d.getFullYear()))].sort((a,b) => b - a);
     
-    const yearSelect = document.getElementById('h-year-filter');
-    if (yearSelect && yearSelect.options.length === 1) { // Only populate it once
-      years.forEach(y => yearSelect.insertAdjacentHTML('beforeend', `<option value="${y}">${y}</option>`));
-    }
-
-    // 2. Keep track of which tab is currently active
-    let currentHomePeriod = 'weekly';
-
-    // 3. The updated render function
+    // Render chart (using same consistent ecnCol check)
     const renderHome = p => {
-      // Update the active period, or keep the current one if just filtering the year
-      if (p) currentHomePeriod = p; 
-      
       const selectedYear = document.getElementById('h-year-filter').value;
-
-      // Filter function to remove rows that don't match the selected year
       const yearFilterFn = r => {
         if (selectedYear === 'all') return true;
         const d = parseDate(r['DATE'] || r['Date']);
         return d && d.getFullYear() === parseInt(selectedYear);
       };
 
-      // Apply the filter to the data arrays
       const filteredNs = ns.filter(yearFilterFn);
       const filteredSv = sv.filter(yearFilterFn);
       const filteredTab = tab.filter(yearFilterFn);
 
-      // Generate chart data using the FILTERED arrays instead of the full arrays
-      const a = closePctTrend(filteredNs, 'DATE', r => isClose(r['CUSTOMER ECN NO.']), currentHomePeriod);
-      const b = closePctTrend(filteredSv, 'DATE', r => isClose(r['CUSTOMER ECN NO.']), currentHomePeriod);
-      
-      const tabCol = Object.keys(tab[0]||{}).find(k=>k.toUpperCase()==='SAP IMPLEMENTATION') || 'IMPLEMENTED / NOT IMPLEMENTED';
-      const c_ = closePctTrend(filteredTab, 'DATE', r => isImpl(r[tabCol]), currentHomePeriod);
+      const a = closePctTrend(filteredNs, 'DATE', r => isClose(r[ecnCol] || ''), p || 'weekly');
+      const b = closePctTrend(filteredSv, 'DATE', r => isClose(r[ecnCol] || ''), p || 'weekly');
+      const c_ = closePctTrend(filteredTab, 'DATE', r => isClose(r[ecnCol] || ''), p || 'weekly');
       
       const allL = [...new Set([...a.labels, ...b.labels, ...c_.labels])].sort((x, y) => {
         if (x.includes('-W')) return x.localeCompare(y);
@@ -1722,24 +1713,17 @@ async function loadHome() {
 
       const align = (ds,lbs) => { const m = Object.fromEntries(ds.labels.map((l,i) => [l, ds.data[i]])); return lbs.map(l => m[l] ?? null); };
       
-      makeLine('h-chart',allL,[
-        lineDs('Non-SVN', align(a,allL), COLORS.blue, [], 'circle', 2), 
-        lineDs('SVN', align(b,allL), COLORS.teal, [5,3], 'rect', 4),    
-        lineDs('TAB', align(c_,allL), COLORS.amber, [2,2], 'rectRot', 6) 
-      ],{pct:true,min:0,max:110,legend:false});
+      makeLine('h-chart', allL, [
+        lineDs('Non-SVN', align(a, allL), COLORS.blue, [], 'circle', 2), 
+        lineDs('SVN', align(b, allL), COLORS.teal, [5,3], 'rect', 4),    
+        lineDs('TAB', align(c_, allL), COLORS.amber, [2,2], 'rectRot', 6) 
+      ], {pct:true, min:0, max:110, legend:false});
     };
 
-    // 4. Listen for changes on the dropdown and re-render
-    yearSelect.addEventListener('change', () => renderHome());
-
-    // 5. Initial render and tab binding
+    document.getElementById('h-year-filter').addEventListener('change', () => renderHome());
     renderHome('weekly');
     bindTrendTabs('h-trend-tabs', renderHome);
     
-    toast('Home data loaded');
-    };
-    renderHome('weekly');
-    bindTrendTabs('h-trend-tabs',renderHome);
     toast('Home data loaded');
   } catch(e) { console.error(e); toast('Error loading home data','ti-alert-circle'); }
 }
@@ -1917,25 +1901,50 @@ async function loadTabOverall() {
 
 async function loadTabSum() {
   try {
-    const rows=await loadCSV('tabSum');
-    const modelField=Object.keys(rows[0]||{}).find(k=>/model/i.test(k))||'MODEL';
-    const implField=Object.keys(rows[0]||{}).find(k=>/implement/i.test(k))||'SAP IMPLEMENTATION';
-    const models=new Set(rows.map(r=>r[modelField]).filter(Boolean)).size;
-    const impl=rows.filter(r=>isImpl(r[implField]||'')).length;
-    const open=rows.length-impl;
-    document.getElementById('ts-models').textContent=fmt(models);
-    document.getElementById('ts-impl').textContent=fmt(impl);
-    document.getElementById('ts-open').textContent=fmt(open);
-    document.getElementById('ts-total').textContent=fmt(rows.length);
-    renderModelBars('ts-model-bars',rows,modelField,COLORS.purple);
-    const cols=Object.keys(rows[0]||{}).slice(0,10);
-    const tagCols={};
-    tagCols[implField]=v=>isImpl(v)?'tag-green':'tag-amber';
-    setTData('ts',rows,cols,tagCols,'ts-table','ts-count');
-    const render=p=>{const g=closePctTrend(rows,Object.keys(rows[0]||{}).find(k=>/^date$/i.test(k))||'DATE',r=>isImpl(r[implField]||''),p);makeLine('ts-chart',g.labels,[lineDs('Close %',g.data,COLORS.purple)],{pct:true,min:0,max:110});};
-    render('weekly'); bindTrendTabs('ts-trend-tabs',render);
+    const rows = await loadCSV('tabSum');
+    
+    // 1. Identify columns
+    const modelField = Object.keys(rows[0]||{}).find(k=>/model/i.test(k)) || 'MODEL';
+    
+    // We use the same "isClose" logic based on "CUSTOMER ECN NO."
+    // If your sheet header is different, ensure "CUSTOMER ECN NO." matches exactly
+    const ecnField = 'CUSTOMER ECN NO.'; 
+    
+    const models = new Set(rows.map(r => r[modelField]).filter(Boolean)).size;
+    
+    // 2. Perform the calculation exactly like the SVN summary
+    const impl = rows.filter(r => isClose(r[ecnField] || '')).length;
+    const open = rows.length - impl;
+    
+    // 3. Update UI
+    document.getElementById('ts-models').textContent = fmt(models);
+    document.getElementById('ts-impl').textContent = fmt(impl);
+    document.getElementById('ts-open').textContent = fmt(open);
+    document.getElementById('ts-total').textContent = fmt(rows.length);
+    
+    renderModelBars('ts-model-bars', rows, modelField, COLORS.purple);
+    
+    const cols = Object.keys(rows[0]||{}).slice(0,10);
+    const tagCols = {};
+    
+    // 4. Update the tag color logic to match the "isClose" result
+    tagCols['IMPLEMENTED / NOT IMPLEMENTED'] = v => isClose(v) ? 'tag-green' : 'tag-amber';
+    
+    setTData('ts', rows, cols, tagCols, 'ts-table', 'ts-count');
+    
+    // 5. Update the Trend chart to use the same logic
+    const render = p => {
+      const g = closePctTrend(rows, Object.keys(rows[0]||{}).find(k=>/^date$/i.test(k))||'DATE', r => isClose(r[ecnField] || ''), p);
+      makeLine('ts-chart', g.labels, [lineDs('Close %', g.data, COLORS.purple)], {pct:true, min:0, max:110});
+    };
+    
+    render('weekly'); 
+    bindTrendTabs('ts-trend-tabs', render);
     toast('TAB Summary loaded');
-  } catch(e){console.error(e);showErr('ts-table','TAB Summary');}
+  } catch(e) { 
+    console.error(e); 
+    showErr('ts-table', 'TAB Summary'); 
+  }
 }
 
 async function loadTabStatus() {
@@ -1988,23 +1997,33 @@ const DET_PAGE_SIZE = 100;
 let _detPage = 1;
 
 function _detParseDate(str) {
-  if (!str || typeof str !== 'string') return null;
+  if (!str || typeof str !== 'string' || str.trim() === '') return null;
   str = str.trim();
-  // dd-mm-yyyy or dd/mm/yyyy
-  let m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
-  if (m) { const y=m[3].length===2?'20'+m[3]:m[3]; return new Date(`${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`); }
-  // yyyy-mm-dd
-  m = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
-  if (m) return new Date(str);
+  
+  // Try YYYY-MM-DD
+  let m = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  if (m) return new Date(m[1], m[2]-1, m[3]);
+
+  // Try DD-MM-YYYY
+  m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (m) { 
+    let y = m[3].length === 2 ? '20' + m[3] : m[3]; 
+    return new Date(y, m[2]-1, m[1]); 
+  }
+
   const d = new Date(str);
-  return isNaN(d) ? null : d;
+  return isNaN(d.getTime()) ? null : d;
 }
 
 function _detDiffDays(receivedStr, implStr) {
   const r = _detParseDate(receivedStr);
   const i = _detParseDate(implStr);
-  if (!r || !i || isNaN(r) || isNaN(i)) return null;
-  return Math.round((i - r) / 86400000);
+  
+  // If either date is missing, return null (it won't be calculated as on-time or late)
+  if (!r || !i) return null;
+  
+  const diff = Math.round((i - r) / 86400000);
+  return isNaN(diff) ? null : diff;
 }
 
 function _detWeekLabel(dateStr, weekNo) {
@@ -2026,29 +2045,65 @@ function _detWeekSort(label) {
   const m = label.match(/WK-(\d+)\s*\((\d+)\)/);
   return m ? parseInt(m[2]) * 100 + parseInt(m[1]) : 0;
 }
+// New State Variable for the toggle
+let _detSummaryMode = 'weekly';
 
+// Triggers when you change the dropdown
+function changeSummaryMode() {
+  _detSummaryMode = document.getElementById('det-summary-mode').value;
+  renderDetailed(); // Re-render the table and chart
+}
+
+// Sorts "Jan 2026", "Feb 2026" chronologically
+function _detMonthSort(label) {
+  if (!label) return 0;
+  const [m, y] = label.split(' ');
+  const monthIndex = new Date(`${m} 1, 2000`).getMonth();
+  return parseInt(y) * 100 + monthIndex;
+}
 async function loadDetailed() {
   try {
-    const [ns, sv] = await Promise.all([loadCSV('nsSum'), loadCSV('svSum')]);
+    const [ns, sv, tab] = await Promise.all([loadCSV('nsSum'), loadCSV('svSum'), loadCSV('tabSum')]);
 
-    // build combined rows
     const combine = (rows, src) => rows.map(r => {
       const received  = r['DATE'] || r['Date'] || '';
-      const sapImpl   = r['SAP IMPLEMENTATION DATE'] || r['SAP Implementation Date'] || '';
-      const windImpl  = r['WIND-CHILL IMPLEMENTATION DATE'] || r['Wind-Chill Implementation Date'] || '';
+      const sapImpl   = r['SAP IMPLEMENTATION DATE'] || '';
+      const windImpl  = r['WIND-CHILL IMPLEMENTATION DATE'] || '';
       const implDate  = windImpl || sapImpl;
-      const diff      = _detDiffDays(received, implDate);
-      const weekLabel = _detWeekLabel(received, r['WEEK NO.'] || r['WEEK NO'] || '');
-      return { ...r, __source: src, __timeDiff: diff, __weekLabel: weekLabel, __received: received, __implDate: implDate };
+      
+      // For TAB rows: if no impl date but CUSTOMER ECN NO. says "Close"/"Implemented",
+      // use SAP date as fallback; if still missing, diff stays null (goes to pending)
+      const diff = _detDiffDays(received, implDate);
+      
+      // Week label: TAB sheet has no WEEK NO, so always compute from date
+      const weekNo = r['WEEK NO'] || r['WEEK NO.'] || '';
+      const weekLabel = _detWeekLabel(received, weekNo);
+      
+      let monthLabel = '';
+      const d = _detParseDate(received);
+      if (d && !isNaN(d)) {
+        monthLabel = `${d.toLocaleString('en-US', { month: 'short' })} ${d.getFullYear()}`;
+      }
+
+      return { 
+        ...r, 
+        __source: src, 
+        __timeDiff: diff, 
+        __weekLabel: weekLabel,
+        __monthLabel: monthLabel,
+        __received: received, 
+        __implDate: implDate 
+      };
     });
 
-    _detRaw = [...combine(ns, 'Non-SVN'), ...combine(sv, 'SVN')];
+    _detRaw = [...combine(ns, 'Non-SVN'), ...combine(sv, 'SVN'), ...combine(tab, 'TAB')];
 
-    // populate year dropdown
+    // Populate Year dropdown
     const years = [...new Set(_detRaw.map(r => {
       const d = _detParseDate(r.__received);
-      return d ? d.getFullYear() : null;
-    }).filter(Boolean))].sort((a,b)=>b-a);
+      return d && !isNaN(d) ? d.getFullYear() : null;
+    }).filter(Boolean))].sort((a, b) => b - a);
+
     const yearSel = document.getElementById('det-year');
     if (yearSel) {
       yearSel.innerHTML = '<option value="all">All Years</option>' +
@@ -2056,57 +2111,83 @@ async function loadDetailed() {
       yearSel.value = '2026';
     }
 
-    // populate week dropdown (sorted newest first)
-    const weeks = [...new Set(_detRaw.map(r => r.__weekLabel).filter(Boolean))]
-      .sort((a,b) => _detWeekSort(b) - _detWeekSort(a));
-    const weekSel = document.getElementById('det-week-filter');
-    if (weekSel) {
-      weekSel.innerHTML = '<option value="">Showing all weeks…</option>' +
-        weeks.map(w => `<option value="${w}">${w}</option>`).join('');
+    // Populate the year dropdown on Home page too
+    const hYearSel = document.getElementById('h-year-filter');
+    if (hYearSel && hYearSel.options.length <= 1) {
+      hYearSel.innerHTML = '<option value="all">All Years</option>' +
+        years.map(y => `<option value="${y}">${y}</option>`).join('');
     }
 
     renderDetailed();
     toast('Detailed Records loaded');
-  } catch(e) { console.error(e); showErr('det-table', 'Detailed Records'); }
+  } catch(e) { 
+    console.error("Detailed Load Error:", e);
+    // Show error in all three possible loading spots
+    ['det-weekly-table','det-table'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = `<div class="error-state"><i class="ti ti-wifi-off"></i><p>Could not load <b>Detailed Records</b> data.</p><p style="font-size:11px;color:var(--grey-400)">${e.message||'Unknown error'}</p><button class="retry-btn" onclick="loaded.delete('detailed'); navigate('detailed')"><i class="ti ti-refresh"></i> Retry</button></div>`;
+    });
+  }
 }
-
 function _getDetView() {
-  return (document.getElementById('det-view')?.value) || 'all';
+  return document.getElementById('det-view')?.value || 'all-total';
 }
 function _getDetYear() {
-  return (document.getElementById('det-year')?.value) || 'all';
+  return document.getElementById('det-year')?.value || 'all';
 }
-
 function renderDetailed() {
   const view = _getDetView();
   const year = _getDetYear();
 
   // apply view + year filter to base data
   let base = _detRaw;
-  if (view !== 'all') base = base.filter(r => r.__source === view);
+  
+  // NEW FILTER LOGIC for the 5 options
+  if (view === 'all') {
+    base = base.filter(r => r.__source === 'SVN' || r.__source === 'Non-SVN');
+  } else if (view !== 'all-total') {
+    base = base.filter(r => r.__source === view);
+  }
+  
   if (year !== 'all') base = base.filter(r => {
     const d = _detParseDate(r.__received);
     return d && d.getFullYear() === parseInt(year);
   });
 
   // update title
-  const viewLabel = view === 'all' ? 'All Combined (SVN + Non-SVN)' : view + ' Only';
+  let viewLabel = '';
+  if (view === 'all-total') viewLabel = 'All Platforms (SVN + Non-SVN + TAB)';
+  else if (view === 'all') viewLabel = 'All Mobile (SVN + Non-SVN)';
+  else viewLabel = view + ' Only';
+  
   const yearLabel = year === 'all' ? 'All Years' : year;
   const titleEl = document.getElementById('det-weekly-title');
-  if (titleEl) titleEl.textContent = `Weekly Implementation Summary (${viewLabel} | ${yearLabel})`;
+  if (titleEl) titleEl.textContent = `Implementation Summary (${viewLabel} | ${yearLabel})`;
 
   // ── KPIs ──
   const total       = base.length;
   const implemented = base.filter(r => r.__timeDiff !== null).length;
   const onTime      = base.filter(r => r.__timeDiff !== null && r.__timeDiff <= 2).length;
-  const rate        = implemented > 0 ? (onTime / implemented * 100).toFixed(2) : '—';
+  const rate        = total > 0 ? (onTime / total * 100).toFixed(2) : '—';
+
+  // Count active sources dynamically for the subtitle
+  const nsCount = base.filter(r=>r.__source==='Non-SVN').length;
+  const svnCount = base.filter(r=>r.__source==='SVN').length;
+  const tabCount = base.filter(r=>r.__source==='TAB').length;
+  
+  let subText = [];
+  if (nsCount > 0) subText.push(`Non-SVN: ${nsCount.toLocaleString()}`);
+  if (svnCount > 0) subText.push(`SVN: ${svnCount.toLocaleString()}`);
+  if (tabCount > 0) subText.push(`TAB: ${tabCount.toLocaleString()}`);
 
   document.getElementById('det-received').textContent    = fmt(total);
   document.getElementById('det-implemented').textContent = fmt(implemented);
   document.getElementById('det-on-time').textContent     = fmt(onTime);
   document.getElementById('det-rate').textContent        = rate !== '—' ? rate + '%' : '—';
-  document.getElementById('det-ns-sub').textContent      = `Non-SVN: ${_detRaw.filter(r=>r.__source==='Non-SVN').length.toLocaleString()} · SVN: ${_detRaw.filter(r=>r.__source==='SVN').length.toLocaleString()}`;
-  document.getElementById('det-sv-sub').textContent      = `${implemented} of ${total} implemented`;
+  
+  // Apply dynamic subtitle
+  document.getElementById('det-ns-sub').textContent      = subText.length ? subText.join(' · ') : 'No data';
+  document.getElementById('det-sv-sub').textContent      = `${fmt(implemented)} of ${fmt(total)} implemented`;
   document.getElementById('det-tab-sub').textContent     = `${rate !== '—' ? rate+'% on-time rate' : 'N/A'}`;
 
   // ── Weekly Summary Table ──
@@ -2120,43 +2201,48 @@ function renderDetailed() {
 }
 
 function _renderWeeklyTable(base) {
-  // group by week label, sorted newest→oldest
-  const weekMap = new Map();
+  const isMonthly = _detSummaryMode === 'monthly';
+  const labelKey = isMonthly ? '__monthLabel' : '__weekLabel';
+  const sortFn = isMonthly ? _detMonthSort : _detWeekSort;
+
+  // group by selected label, sorted newest→oldest
+  const groupMap = new Map();
   base.forEach(r => {
-    if (!r.__weekLabel) return;
-    if (!weekMap.has(r.__weekLabel)) weekMap.set(r.__weekLabel, []);
-    weekMap.get(r.__weekLabel).push(r);
+    const lbl = r[labelKey];
+    if (!lbl) return;
+    if (!groupMap.has(lbl)) groupMap.set(lbl, []);
+    groupMap.get(lbl).push(r);
   });
 
-  const sortedWeeks = [...weekMap.keys()].sort((a,b) => _detWeekSort(b) - _detWeekSort(a));
+  const sortedLabels = [...groupMap.keys()].sort((a,b) => sortFn(b) - sortFn(a));
 
-  if (!sortedWeeks.length) {
-    document.getElementById('det-weekly-table').innerHTML = '<div class="empty"><i class="ti ti-mood-empty"></i><p>No weekly data</p></div>';
+  if (!sortedLabels.length) {
+    document.getElementById('det-weekly-table').innerHTML = `<div class="empty"><i class="ti ti-mood-empty"></i><p>No ${isMonthly ? 'monthly' : 'weekly'} data</p></div>`;
     return;
   }
 
   // row definitions
   const ROW_LABELS = [
-    { cat:'ECN received',               det:'Run-in Change',  fn: (wk,_t) => wk.filter(r=>/run.in/i.test(r['FG/SFG code']||r['FG/SFG Code']||'')).length },
-    { cat:'ECN received',               det:'Cut-in change',  fn: (wk,_t) => wk.filter(r=>/cut.in|initial/i.test(r['FG/SFG code']||r['FG/SFG Code']||'')).length },
-    { cat:'Implemented within 48 Hrs',  det:'Run-in Change',  fn: (wk,_t) => wk.filter(r=>r.__timeDiff!==null&&r.__timeDiff<=2&&/run.in/i.test(r['FG/SFG code']||r['FG/SFG Code']||'')).length },
-    { cat:'Implemented within 48 Hrs',  det:'Cut-in change',  fn: (wk,_t) => wk.filter(r=>r.__timeDiff!==null&&r.__timeDiff<=2&&/cut.in|initial/i.test(r['FG/SFG code']||r['FG/SFG Code']||'')).length },
-    { cat:'Implemented after 48 Hrs',   det:'Run-in Change',  fn: (wk,_t) => wk.filter(r=>r.__timeDiff!==null&&r.__timeDiff>2&&/run.in/i.test(r['FG/SFG code']||r['FG/SFG Code']||'')).length },
-    { cat:'Implemented after 48 Hrs',   det:'Cut-in change',  fn: (wk,_t) => wk.filter(r=>r.__timeDiff!==null&&r.__timeDiff>2&&/cut.in|initial/i.test(r['FG/SFG code']||r['FG/SFG Code']||'')).length },
+    { cat:'ECN received',               det:'Run-in Change',  fn: (grp) => grp.filter(r=>/run.in/i.test(r['FG/SFG code']||r['FG/SFG Code']||'')).length },
+    { cat:'ECN received',               det:'Cut-in change',  fn: (grp) => grp.filter(r=>/cut.in|initial/i.test(r['FG/SFG code']||r['FG/SFG Code']||'')).length },
+    { cat:'Implemented within 48 Hrs',  det:'Run-in Change',  fn: (grp) => grp.filter(r=>r.__timeDiff!==null&&r.__timeDiff<=2&&/run.in/i.test(r['FG/SFG code']||r['FG/SFG Code']||'')).length },
+    { cat:'Implemented within 48 Hrs',  det:'Cut-in change',  fn: (grp) => grp.filter(r=>r.__timeDiff!==null&&r.__timeDiff<=2&&/cut.in|initial/i.test(r['FG/SFG code']||r['FG/SFG Code']||'')).length },
+    { cat:'Implemented after 48 Hrs',   det:'Run-in Change',  fn: (grp) => grp.filter(r=>r.__timeDiff!==null&&r.__timeDiff>2&&/run.in/i.test(r['FG/SFG code']||r['FG/SFG Code']||'')).length },
+    { cat:'Implemented after 48 Hrs',   det:'Cut-in change',  fn: (grp) => grp.filter(r=>r.__timeDiff!==null&&r.__timeDiff>2&&/cut.in|initial/i.test(r['FG/SFG code']||r['FG/SFG Code']||'')).length },
     { cat:'Ontime implementation rate', det:'',               isRate:true },
   ];
 
-  // precompute per-week data
-  const wkData = sortedWeeks.map(lbl => {
-    const wk = weekMap.get(lbl);
-    const impl   = wk.filter(r=>r.__timeDiff!==null).length;
-    const inTime = wk.filter(r=>r.__timeDiff!==null&&r.__timeDiff<=2).length;
-    const rate   = impl>0 ? Math.round(inTime/impl*100)+'%' : 'N/A';
-    return { wk, impl, inTime, rate };
+  // precompute per-period data
+  const periodData = sortedLabels.map(lbl => {
+    const grp = groupMap.get(lbl);
+    const received = grp.length;
+    const impl     = grp.filter(r=>r.__timeDiff!==null).length;
+    const inTime   = grp.filter(r=>r.__timeDiff!==null&&r.__timeDiff<=2).length;
+    const rate     = received > 0 ? Math.round(inTime/received*100)+'%' : 'N/A'; 
+    return { grp, received, impl, inTime, rate };
   });
 
-  // build HTML table – Category col spans 2 rows each group
-  const COLS_SHOW = sortedWeeks;///.slice(0, 20); // cap at 20 weeks wide
+  const COLS_SHOW = sortedLabels;
 
   let html = `<table style="font-size:12px;min-width:600px;border-collapse:collapse;width:100%">
 <thead><tr>
@@ -2165,14 +2251,12 @@ function _renderWeeklyTable(base) {
   ${COLS_SHOW.map(lbl=>`<th style="position:sticky;top:0;z-index:4;background:#3730A3;color:#fff;padding:8px 10px;text-align:center;white-space:nowrap;min-width:100px;border:1px solid #312E81">${lbl}</th>`).join('')}
 </tr></thead><tbody>`;
 
-  // rows with rowspan grouping
   const groups = [
     { cat:'ECN received',               rows:[0,1] },
     { cat:'Implemented within 48 Hrs',  rows:[2,3], bold:true },
     { cat:'Implemented after 48 Hrs',   rows:[4,5] },
   ];
 
-  let rowIdx = 0;
   groups.forEach(g => {
     g.rows.forEach((ri, gi) => {
       const row = ROW_LABELS[ri];
@@ -2182,20 +2266,18 @@ function _renderWeeklyTable(base) {
       }
       html += `<td style="position:sticky;left:180px;background:#fff;z-index:2;padding:8px 12px;border:1px solid #E2E8F0;white-space:nowrap;min-width:130px">${row.det}</td>`;
       COLS_SHOW.forEach((lbl,wi) => {
-        const val = ROW_LABELS[ri].fn(wkData[wi].wk, wkData[wi]);
+        const val = ROW_LABELS[ri].fn(periodData[wi].grp);
         html += `<td style="text-align:center;padding:7px 10px;border:1px solid #E2E8F0">${val}</td>`;
       });
       html += '</tr>';
-      rowIdx++;
     });
   });
 
-  // Ontime rate row – highlighted
   html += `<tr style="background:#EEF2FF">
     <td colspan="2" style="position:sticky;left:0;z-index:2;background:#EEF2FF;padding:8px 12px;border:1px solid #C7D2FE;font-weight:700;color:#312E81;white-space:nowrap">Ontime implementation rate</td>
     ${COLS_SHOW.map((_,wi) => {
-      const { impl, inTime } = wkData[wi];
-      const r = impl > 0 ? Math.round(inTime/impl*100)+'%' : 'N/A';
+      const { received, inTime } = periodData[wi];
+      const r = received > 0 ? Math.round(inTime/received*100)+'%' : 'N/A';
       return `<td style="text-align:center;padding:7px 10px;border:1px solid #C7D2FE;font-weight:700;color:#312E81">${r}</td>`;
     }).join('')}
   </tr>`;
@@ -2205,17 +2287,29 @@ function _renderWeeklyTable(base) {
 }
 
 function _renderDetTrendChart(base) {
-  // group weekly ontime rate
-  const weekMap = new Map();
+  const isMonthly = _detSummaryMode === 'monthly';
+  const labelKey = isMonthly ? '__monthLabel' : '__weekLabel';
+  const sortFn = isMonthly ? _detMonthSort : _detWeekSort;
+
+  // group ontime rate
+  const groupMap = new Map();
   base.forEach(r => {
-    if (!r.__weekLabel) return;
-    if (!weekMap.has(r.__weekLabel)) weekMap.set(r.__weekLabel, { impl:0, onTime:0 });
-    const w = weekMap.get(r.__weekLabel);
-    if (r.__timeDiff !== null) { w.impl++; if(r.__timeDiff<=2) w.onTime++; }
+    const lbl = r[labelKey];
+    if (!lbl) return;
+    
+    if (!groupMap.has(lbl)) groupMap.set(lbl, { received:0, onTime:0 });
+    
+    const w = groupMap.get(lbl);
+    w.received++; 
+
+    if (r.__timeDiff !== null && r.__timeDiff<=2) { 
+        w.onTime++; 
+    }
   });
-  const sorted = [...weekMap.entries()].sort((a,b)=>_detWeekSort(a[0])-_detWeekSort(b[0]));
+  
+  const sorted = [...groupMap.entries()].sort((a,b)=> sortFn(b[0]) - sortFn(a[0]));
   const labels = sorted.map(x=>x[0]);
-  const data   = sorted.map(([_,w])=> w.impl>0 ? +(w.onTime/w.impl*100).toFixed(1) : 0);
+  const data   = sorted.map(([_,w])=> w.received > 0 ? +(w.onTime/w.received*100).toFixed(1) : 0);
 
   const cid = 'det-trend-chart';
   if (CHARTS[cid]) CHARTS[cid].destroy();
@@ -2281,15 +2375,22 @@ function filterDetailed(baseOverride) {
   const view = _getDetView();
   const year = _getDetYear();
   let base = baseOverride !== undefined ? baseOverride : _detRaw;
+  
   if (baseOverride === undefined) {
-    if (view !== 'all') base = base.filter(r=>r.__source===view);
+    // Match the new dropdown logic
+    if (view === 'all') {
+      base = base.filter(r => r.__source === 'SVN' || r.__source === 'Non-SVN');
+    } else if (view !== 'all-total') {
+      base = base.filter(r => r.__source === view);
+    }
+    
     if (year !== 'all') base = base.filter(r=>{ const d=_detParseDate(r.__received); return d&&d.getFullYear()===parseInt(year); });
   }
 
   // Split your dataset into three precise groups
   const within = base.filter(r=>r.__timeDiff!==null&&r.__timeDiff <= 2);
   const after  = base.filter(r=>r.__timeDiff!==null&&r.__timeDiff > 2);
-  const pending = base.filter(r=>r.__timeDiff === null); // Null means no tracking implementation date exists yet
+  const pending = base.filter(r=>r.__timeDiff === null);
 
   // Update badge counter elements on the tab row headers
   const cntW = document.getElementById('det-within-cnt');
@@ -2466,6 +2567,7 @@ async function prepareAndPrint() {
 function navigate(page) {
   if (page===curPage && loaded.has(page)) return;
   curPage=page;
+  
   document.querySelectorAll('.sb-item').forEach(el=>el.classList.toggle('active',el.dataset.page===page));
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const el=document.getElementById('page-'+page);
