@@ -812,7 +812,14 @@ tbody td:last-child{border-right:none}
       </div>
       <div class="card">
         <div class="tbl-toolbar">
-          <div class="search-box"><i class="ti ti-search"></i><input type="text" placeholder="Search model, part, ECN…" id="nss-search" oninput="filterTable('nss')"></div>
+          <div class="search-box">
+            <i class="ti ti-search"></i>
+            <input type="text" placeholder="Search model, part, ECN…" id="nss-search" oninput="filterTable('nss')">
+          </div>
+          <div class="search-box">
+            <i class="ti ti-filter"></i>
+            <input type="text" placeholder="Filter within results…" id="nss-search2" oninput="filterTable('nss')">
+          </div>
           <select class="tbl-filter-select" id="nss-type-filter" onchange="filterTable('nss')">
             <option value="">All Change Types</option>
             <option value="ADD">Add</option>
@@ -849,7 +856,14 @@ tbody td:last-child{border-right:none}
       </div>
       <div class="card">
         <div class="tbl-toolbar">
-          <div class="search-box"><i class="ti ti-search"></i><input type="text" placeholder="Search…" id="svs-search" oninput="filterTable('svs')"></div>
+          <div class="search-box">
+            <i class="ti ti-search"></i>
+            <input type="text" placeholder="Search model, part, ECN…" id="svs-search" oninput="filterTable('svs')">
+          </div>
+          <div class="search-box">
+            <i class="ti ti-filter"></i>
+            <input type="text" placeholder="Filter within results…" id="svs-search2" oninput="filterTable('svs')">
+          </div>
           <select class="tbl-filter-select" id="svs-type-filter" onchange="filterTable('svs')">
             <option value="">All Change Types</option>
             <option value="ADD">Add</option>
@@ -1021,7 +1035,14 @@ tbody td:last-child{border-right:none}
       </div>
       <div class="card">
         <div class="tbl-toolbar">
-          <div class="search-box"><i class="ti ti-search"></i><input type="text" placeholder="Search…" id="tss-search" oninput="filterTable('tss')"></div>
+          <div class="search-box">
+            <i class="ti ti-search"></i>
+            <input type="text" placeholder="Search model, part, ECN…" id="tss-search" oninput="filterTable('tss')">
+          </div>
+          <div class="search-box">
+            <i class="ti ti-filter"></i>
+            <input type="text" placeholder="Filter within results…" id="tss-search2" oninput="filterTable('tss')">
+          </div>
           <select class="tbl-filter-select" id="tss-type-filter" onchange="filterTable('tss')">
             <option value="">All Change Types</option>
             <option value="ADD">Add</option>
@@ -1376,8 +1397,9 @@ function setGlobalDateRange(daysAgo) {
     
     applyGlobalFilter();
 }
+
 /* ═══════════════════════════════════════════════
-   CSV LOADER (Overwritten to apply global filter)
+   CSV LOADER (With Forward-Fill limited to Status pages)
 ═══════════════════════════════════════════════ */
 function loadCSV(key) {
   return new Promise((res, rej) => {
@@ -1390,11 +1412,56 @@ function loadCSV(key) {
     // Otherwise, download it, save the raw data to CACHE, then filter it
     Papa.parse(URLS[key], {
       download: true, header: true, skipEmptyLines: true,
-      complete: r => { CACHE[key] = r.data; process(r.data); },
+      complete: r => { 
+        
+        // --- NEW: Forward-fill merged (blank) cells ONLY for specific status pages ---
+        const targetPages = ['nsStatus', 'svStatus', 'tabStat'];
+        
+        if (targetPages.includes(key)) {
+            // Only fill these specific grouping columns
+            const columnsToFill = [
+              'SL NO', 'Receiving Date', 'Acknowledge By', 'Model', 'MODEL', 
+              'Customer ECN No.', 'CUSTOMER ECN NO.', 
+              'ECN Type'
+            ];
+
+            // Identify the "anchor" column that signifies a brand new record block
+            const csvCols = Object.keys(r.data[0] || {});
+            const possibleAnchors = ['SL NO', 'Receiving Date'];
+            const anchorCol = csvCols.find(c => possibleAnchors.includes(c)) || csvCols[0];
+
+            let lastRowData = {};
+
+            r.data.forEach(row => {
+              // If the anchor column has a value, we've hit a new ECN group. Reset the tracker.
+              if (anchorCol && row[anchorCol] && row[anchorCol].toString().trim() !== '') {
+                lastRowData = {};
+              }
+
+              // Forward-fill the designated columns
+              columnsToFill.forEach(col => {
+                if (row[col] !== undefined) {
+                  if (row[col].toString().trim() !== '') {
+                    // Save the new value to carry down to subsequent blank rows
+                    lastRowData[col] = row[col];
+                  } else if (lastRowData[col]) {
+                    // If it's blank, inherit the value from the row above it
+                    row[col] = lastRowData[col];
+                  }
+                }
+              });
+            });
+        }
+        // ----------------------------------------------
+      
+        CACHE[key] = r.data; 
+        process(r.data); 
+      },
       error:    e => rej(e)
     });
   });
 }
+
 
 /* ═══════════════════════════════════════════════
    UTILS
@@ -1593,12 +1660,14 @@ function sortTable(elId, colKey) {
 
 function filterTable(key) {
   const src=TDATA[key]; if(!src) return;
-  const q=(document.getElementById(key+'-search')?.value||'').toLowerCase();
+  const q  = (document.getElementById(key+'-search') ?.value || '').toLowerCase();
+
   const stFilter=document.getElementById(key+'-status-filter')?.value||'';
   const tyFilter=document.getElementById(key+'-type-filter')?.value||'';
   const srcFilter=document.getElementById(key+'-src')?.value||'';
   let rows=src.rows;
   if(q)        rows=rows.filter(r=>Object.values(r).some(v=>(v||'').toLowerCase().includes(q)));
+  
   if(stFilter) rows=rows.filter(r=>Object.values(r).some(v=>(v||'').toUpperCase().includes(stFilter)));
   if(tyFilter) rows=rows.filter(r=>Object.values(r).some(v=>(v||'').toUpperCase().includes(tyFilter)));
   if(srcFilter)rows=rows.filter(r=>(r.__source||'').includes(srcFilter));
@@ -1731,13 +1800,17 @@ async function loadHome() {
 async function loadNsSum() {
   try {
     const rows=await loadCSV('nsSum');
-    const models=new Set(rows.map(r=>r.MODEL||r.Model).filter(Boolean)).size;
+// --- YOUR NEW CASE-INSENSITIVE LOGIC ---
+    const clean = (val) => (val === undefined || val === null) ? '' : val.toString().trim().toLowerCase();
+    const models = new Set(rows.map(r=>clean(r.MODEL||r.Model)).filter(Boolean)).size;
+    // ---------------------------------------
     
     // THE FIX: Bulletproof column finders
     const dField = Object.keys(rows[0]||{}).find(k => /^date$/i.test(k)) || 'DATE';
     const sField = Object.keys(rows[0]||{}).find(k => /implement|close|status/i.test(k) && !/date/i.test(k)) || 'IMPLEMENTED / NOT IMPLEMENTED';
     
-    const impl=rows.filter(r=>isClose(r['CUSTOMER ECN NO.'])).length;    const open=rows.length-impl;
+    const impl=rows.filter(r=>isClose(r['CUSTOMER ECN NO.'])).length;    
+    const open=rows.length-impl;
     
     document.getElementById('ns-models').textContent=fmt(models);
     document.getElementById('ns-impl').textContent=fmt(impl);
@@ -1761,7 +1834,10 @@ async function loadNsSum() {
 async function loadSvSum() {
   try {
     const rows=await loadCSV('svSum');
-    const models=new Set(rows.map(r=>r.MODEL||r.Model).filter(Boolean)).size;
+// --- YOUR NEW CASE-INSENSITIVE LOGIC ---
+    const clean = (val) => (val === undefined || val === null) ? '' : val.toString().trim().toLowerCase();
+    const models = new Set(rows.map(r=>clean(r.MODEL||r.Model)).filter(Boolean)).size;
+    // ---------------------------------------
     
     // THE FIX: Bulletproof column finders
     const dField = Object.keys(rows[0]||{}).find(k => /^date$/i.test(k)) || 'DATE';
@@ -1792,11 +1868,15 @@ async function loadSvSum() {
 async function loadNsStatus() {
   try {
     const rows=await loadCSV('nsStatus');
-    const models=new Set(rows.map(r=>r.Model||r.MODEL).filter(Boolean)).size;
-    const add=rows.filter(r=>/add/i.test(r['Change Type']||'')).length;
-    const del_=rows.filter(r=>/delete/i.test(r['Change Type']||'')).length;
-    const chg=rows.filter(r=>/change/i.test(r['Change Type']||'')).length;
-    const ecns=new Set(rows.map(r=>r['Customer ECN No.']||r['CUSTOMER ECN NO.']).filter(Boolean)).size;
+// --- YOUR NEW CASE-INSENSITIVE LOGIC ---
+    const clean = (val) => (val === undefined || val === null) ? '' : val.toString().trim().toLowerCase();
+    
+    const models = new Set(rows.map(r=>clean(r.Model||r.MODEL)).filter(Boolean)).size;
+    const add = rows.filter(r=>clean(r['Change Type']) === 'add').length;
+    const del_ = rows.filter(r=>clean(r['Change Type']) === 'delete').length;
+    const chg = rows.filter(r=>clean(r['Change Type']) === 'change').length; // Added for Non-SVN
+    const ecns = new Set(rows.map(r=>clean(r['Customer ECN No.']||r['CUSTOMER ECN NO.'])).filter(Boolean)).size;
+    // ---------------------------------------
     document.getElementById('nss-models').textContent=fmt(models);
     document.getElementById('nss-add').textContent=fmt(add);
     document.getElementById('nss-del').textContent=fmt(del_);
@@ -1820,10 +1900,14 @@ async function loadNsStatus() {
 async function loadSvStatus() {
   try {
     const rows=await loadCSV('svStatus');
-    const models=new Set(rows.map(r=>r.Model||r.MODEL).filter(Boolean)).size;
-    const add=rows.filter(r=>/add/i.test(r['Change Type']||'')).length;
-    const del_=rows.filter(r=>/delete/i.test(r['Change Type']||'')).length;
-    const ecns=new Set(rows.map(r=>r['Customer ECN No.']||r['CUSTOMER ECN NO.']).filter(Boolean)).size;
+// --- YOUR NEW CASE-INSENSITIVE LOGIC ---
+    const clean = (val) => (val === undefined || val === null) ? '' : val.toString().trim().toLowerCase();
+    
+    const models = new Set(rows.map(r=>clean(r.Model||r.MODEL)).filter(Boolean)).size;
+    const add = rows.filter(r=>clean(r['Change Type']) === 'add').length;
+    const del_ = rows.filter(r=>clean(r['Change Type']) === 'delete').length;
+    const ecns = new Set(rows.map(r=>clean(r['Customer ECN No.']||r['CUSTOMER ECN NO.'])).filter(Boolean)).size;
+    // ---------------------------------------
     document.getElementById('svs-models').textContent=fmt(models);
     document.getElementById('svs-add').textContent=fmt(add);
     document.getElementById('svs-del').textContent=fmt(del_);
@@ -1910,7 +1994,10 @@ async function loadTabSum() {
     // If your sheet header is different, ensure "CUSTOMER ECN NO." matches exactly
     const ecnField = 'CUSTOMER ECN NO.'; 
     
-    const models = new Set(rows.map(r => r[modelField]).filter(Boolean)).size;
+// --- YOUR NEW CASE-INSENSITIVE LOGIC ---
+    const clean = (val) => (val === undefined || val === null) ? '' : val.toString().trim().toLowerCase();
+    const models = new Set(rows.map(r => clean(r[modelField])).filter(Boolean)).size;
+    // ---------------------------------------
     
     // 2. Perform the calculation exactly like the SVN summary
     const impl = rows.filter(r => isClose(r[ecnField] || '')).length;
@@ -1953,10 +2040,14 @@ async function loadTabStatus() {
     const modelField=Object.keys(rows[0]||{}).find(k=>/model/i.test(k))||'Model';
     const ecnField=Object.keys(rows[0]||{}).find(k=>/customer.*ecn|ecn.*no/i.test(k))||'Customer ECN No.';
     const changeField=Object.keys(rows[0]||{}).find(k=>/change.*type/i.test(k))||'Change Type';
-    const models=new Set(rows.map(r=>r[modelField]).filter(Boolean)).size;
-    const add=rows.filter(r=>/add/i.test(r[changeField]||'')).length;
-    const del_=rows.filter(r=>/delete/i.test(r[changeField]||'')).length;
-    const ecns=new Set(rows.map(r=>r[ecnField]).filter(Boolean)).size;
+// --- YOUR NEW CASE-INSENSITIVE LOGIC ---
+    const clean = (val) => (val === undefined || val === null) ? '' : val.toString().trim().toLowerCase();
+    
+    const models = new Set(rows.map(r=>clean(r[modelField])).filter(Boolean)).size;
+    const add = rows.filter(r=>clean(r[changeField]) === 'add').length;
+    const del_ = rows.filter(r=>clean(r[changeField]) === 'delete').length;
+    const ecns = new Set(rows.map(r=>clean(r[ecnField])).filter(Boolean)).size;
+    // ---------------------------------------
     document.getElementById('tss-models').textContent=fmt(models);
     document.getElementById('tss-add').textContent=fmt(add);
     document.getElementById('tss-del').textContent=fmt(del_);
@@ -2767,12 +2858,14 @@ function setTData(key,rows,cols,tagCols,tableEl,countEl) {
 
 function filterTablePaged(key) {
   const src=TDATA[key]; if(!src) return;
-  const q=(document.getElementById(key+'-search')?.value||'').toLowerCase();
+  const q  = (document.getElementById(key+'-search') ?.value || '').toLowerCase();
+  const q2 = (document.getElementById(key+'-search2')?.value || '').toLowerCase();
   const stF=document.getElementById(key+'-status-filter')?.value||'';
   const tyF=document.getElementById(key+'-type-filter')?.value||'';
   const srF=document.getElementById(key+'-src')?.value||'';
   let rows=src.rows;
   if(q)   rows=rows.filter(r=>Object.values(r).some(v=>(v||'').toLowerCase().includes(q)));
+  if(q2)  rows=rows.filter(r=>Object.values(r).some(v=>(v||'').toLowerCase().includes(q2)));
   if(stF) rows=rows.filter(r=>Object.values(r).some(v=>(v||'').toUpperCase().includes(stF)));
   if(tyF) rows=rows.filter(r=>Object.values(r).some(v=>(v||'').toUpperCase().includes(tyF)));
   if(srF) rows=rows.filter(r=>(r.__source||'').includes(srF));
@@ -2851,12 +2944,16 @@ function buildSparklines(nsData, svData, tabData) {
 }
 
 /* ═══════════════════════════════════════════════
-   TICKER UPDATE
+   TICKER UPDATE (Case-Insensitive)
 ═══════════════════════════════════════════════ */
 function updateTicker(nsData, svData, tabData) {
+  // Helper: forces value to a String, strips accidental spaces, converts to lowercase
+  const clean = (val) => (val === undefined || val === null) ? '' : val.toString().trim().toLowerCase();
+
   // Use CUSTOMER ECN NO. for all three — same logic as Home, NSSum, SVSum, TabSum
   const ecnCol = 'CUSTOMER ECN NO.';
 
+  // (isClose already uses a case-insensitive regex /close/i so it doesn't need the clean helper)
   const nsImpl   = nsData.filter(r  => isClose(r[ecnCol] || '')).length;
   const svImpl   = svData.filter(r  => isClose(r[ecnCol] || '')).length;
   const tabImpl  = tabData.filter(r => isClose(r[ecnCol] || '')).length;
@@ -2869,9 +2966,10 @@ function updateTicker(nsData, svData, tabData) {
   const totalCl  = nsImpl + svImpl + tabImpl;
   const totalPct = total ? (totalCl / total * 100).toFixed(1) : '—';
 
-  const nsModels  = new Set(nsData.map(r  => r.MODEL || r.Model).filter(Boolean)).size;
-  const svModels  = new Set(svData.map(r  => r.MODEL || r.Model).filter(Boolean)).size;
-  const tabModels = new Set(tabData.map(r => r.MODEL || r.Model).filter(Boolean)).size;
+  // Apply the case-insensitive cleaning logic to accurately count unique models
+  const nsModels  = new Set(nsData.map(r  => clean(r.MODEL || r.Model)).filter(Boolean)).size;
+  const svModels  = new Set(svData.map(r  => clean(r.MODEL || r.Model)).filter(Boolean)).size;
+  const tabModels = new Set(tabData.map(r => clean(r.MODEL || r.Model || r['Model Name'])).filter(Boolean)).size;
 
   const pending = total - totalCl;
 
