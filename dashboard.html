@@ -2223,13 +2223,35 @@ function _renderWeeklyTable(base) {
 
   // row definitions
   const ROW_LABELS = [
-    { cat:'ECN received',               det:'Run-in Change',  fn: (grp) => grp.filter(r=>/run.in/i.test(r['FG/SFG code']||r['FG/SFG Code']||'')).length },
-    { cat:'ECN received',               det:'Cut-in change',  fn: (grp) => grp.filter(r=>/cut.in|initial/i.test(r['FG/SFG code']||r['FG/SFG Code']||'')).length },
-    { cat:'Implemented within 48 Hrs',  det:'Run-in Change',  fn: (grp) => grp.filter(r=>r.__timeDiff!==null&&r.__timeDiff<=2&&/run.in/i.test(r['FG/SFG code']||r['FG/SFG Code']||'')).length },
-    { cat:'Implemented within 48 Hrs',  det:'Cut-in change',  fn: (grp) => grp.filter(r=>r.__timeDiff!==null&&r.__timeDiff<=2&&/cut.in|initial/i.test(r['FG/SFG code']||r['FG/SFG Code']||'')).length },
-    { cat:'Implemented after 48 Hrs',   det:'Run-in Change',  fn: (grp) => grp.filter(r=>r.__timeDiff!==null&&r.__timeDiff>2&&/run.in/i.test(r['FG/SFG code']||r['FG/SFG Code']||'')).length },
-    { cat:'Implemented after 48 Hrs',   det:'Cut-in change',  fn: (grp) => grp.filter(r=>r.__timeDiff!==null&&r.__timeDiff>2&&/cut.in|initial/i.test(r['FG/SFG code']||r['FG/SFG Code']||'')).length },
-    { cat:'Ontime implementation rate', det:'',               isRate:true },
+    { cat:'ECN received', det:'Run-in Change', fn: (grp) => grp.filter(r => {
+        const fg = (r['FG/SFG code'] || r['FG/SFG Code'] || '').trim();
+        return /run.?in|running/i.test(fg) || (fg === '' && r.__source === 'TAB');
+    }).length },
+    { cat:'ECN received', det:'Cut-in change', fn: (grp) => grp.filter(r => {
+        const fg = (r['FG/SFG code'] || r['FG/SFG Code'] || '').trim();
+        return /cut.?in|initial/i.test(fg);
+    }).length },
+    { cat:'Implemented within 48 Hrs', det:'Run-in Change', fn: (grp) => grp.filter(r => {
+        const fg = (r['FG/SFG code'] || r['FG/SFG Code'] || '').trim();
+        const isOnTime = r.__timeDiff !== null && r.__timeDiff <= 2;
+        return isOnTime && (/run.?in|running/i.test(fg) || (fg === '' && r.__source === 'TAB'));
+    }).length },
+    { cat:'Implemented within 48 Hrs', det:'Cut-in change', fn: (grp) => grp.filter(r => {
+        const fg = (r['FG/SFG code'] || r['FG/SFG Code'] || '').trim();
+        const isOnTime = r.__timeDiff !== null && r.__timeDiff <= 2;
+        return isOnTime && /cut.?in|initial/i.test(fg);
+    }).length },
+    { cat:'Implemented after 48 Hrs', det:'Run-in Change', fn: (grp) => grp.filter(r => {
+        const fg = (r['FG/SFG code'] || r['FG/SFG Code'] || '').trim();
+        const isLate = r.__timeDiff !== null && r.__timeDiff > 2;
+        return isLate && (/run.?in|running/i.test(fg) || (fg === '' && r.__source === 'TAB'));
+    }).length },
+    { cat:'Implemented after 48 Hrs', det:'Cut-in change', fn: (grp) => grp.filter(r => {
+        const fg = (r['FG/SFG code'] || r['FG/SFG Code'] || '').trim();
+        const isLate = r.__timeDiff !== null && r.__timeDiff > 2;
+        return isLate && /cut.?in|initial/i.test(fg);
+    }).length },
+    { cat:'Ontime implementation rate', det:'', isRate:true },
   ];
 
   // precompute per-period data
@@ -2831,31 +2853,40 @@ function buildSparklines(nsData, svData, tabData) {
 /* ═══════════════════════════════════════════════
    TICKER UPDATE
 ═══════════════════════════════════════════════ */
-  function updateTicker(nsData, svData, tabData) {
-  const nsImpl  = nsData.filter(r=>isClose(r['CUSTOMER ECN NO.'])).length;
-  const svImpl  = svData.filter(r=>isClose(r['CUSTOMER ECN NO.'])).length;
-  const tabImpl = tabData.filter(r=>isClose(r['SAP IMPLEMENTATION'])).length;
-  const nsPct   = nsData.length  ? (nsImpl/nsData.length*100).toFixed(1)   : '—';
-  const svPct   = svData.length  ? (svImpl/svData.length*100).toFixed(1)   : '—';
-  const tabPct  = tabData.length ? (tabImpl/tabData.length*100).toFixed(1) : '—';
-  const total   = nsData.length + svData.length + tabData.length;
-  const totalCl = nsImpl + svImpl + tabImpl;
-  const totalPct= total ? (totalCl/total*100).toFixed(1) : '—';
-  const nsModels  = new Set(nsData.map(r=>r.MODEL||r.Model).filter(Boolean)).size;
-  const svModels  = new Set(svData.map(r=>r.MODEL||r.Model).filter(Boolean)).size;
-  const tabModels = new Set(tabData.map(r=>r.MODEL||r.Model).filter(Boolean)).size;
+function updateTicker(nsData, svData, tabData) {
+  // Use CUSTOMER ECN NO. for all three — same logic as Home, NSSum, SVSum, TabSum
+  const ecnCol = 'CUSTOMER ECN NO.';
+
+  const nsImpl   = nsData.filter(r  => isClose(r[ecnCol] || '')).length;
+  const svImpl   = svData.filter(r  => isClose(r[ecnCol] || '')).length;
+  const tabImpl  = tabData.filter(r => isClose(r[ecnCol] || '')).length;
+
+  const nsPct    = nsData.length  ? (nsImpl  / nsData.length  * 100).toFixed(1) : '—';
+  const svPct    = svData.length  ? (svImpl  / svData.length  * 100).toFixed(1) : '—';
+  const tabPct   = tabData.length ? (tabImpl / tabData.length * 100).toFixed(1) : '—';
+
+  const total    = nsData.length + svData.length + tabData.length;
+  const totalCl  = nsImpl + svImpl + tabImpl;
+  const totalPct = total ? (totalCl / total * 100).toFixed(1) : '—';
+
+  const nsModels  = new Set(nsData.map(r  => r.MODEL || r.Model).filter(Boolean)).size;
+  const svModels  = new Set(svData.map(r  => r.MODEL || r.Model).filter(Boolean)).size;
+  const tabModels = new Set(tabData.map(r => r.MODEL || r.Model).filter(Boolean)).size;
+
+  const pending = total - totalCl;
 
   const items = [
     `📱 Non-SVN Mobile · ${nsData.length.toLocaleString()} records · ${nsPct}% closed · ${nsModels} models`,
     `🔄 SVN Mobile · ${svData.length.toLocaleString()} records · ${svPct}% closed · ${svModels} models`,
     `💻 TAB Platform · ${tabData.length.toLocaleString()} records · ${tabPct}% closed · ${tabModels} models`,
     `📊 Overall close rate across all platforms · ${totalPct}%`,
-    `🗂 Total ECN records · ${total.toLocaleString()} across ${nsModels+svModels+tabModels} models`,
-    `✅ Implemented · ${totalCl.toLocaleString()} · ⏳ Pending · ${(total-totalCl).toLocaleString()}`,
+    `🗂 Total ECN records · ${total.toLocaleString()} across ${nsModels + svModels + tabModels} models`,
+    `✅ Implemented · ${totalCl.toLocaleString()} · ⏳ Pending · ${pending.toLocaleString()}`,
   ];
-  const doubled = [...items,...items];
+
+  const doubled = [...items, ...items];
   const tc = document.getElementById('ticker-content');
-  if(tc) tc.innerHTML = doubled.map(t=>`<span>${t}</span>`).join('');
+  if (tc) tc.innerHTML = doubled.map(t => `<span>${t}</span>`).join('');
 }
 
 /* ═══════════════════════════════════════════════
