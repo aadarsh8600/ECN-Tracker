@@ -457,7 +457,17 @@ tbody td:last-child{border-right:none}
     </div>
   </div>
 </div>
-
+<div class="modal-overlay" id="data-modal" onclick="if(event.target===this)closeDataModal()">
+  <div class="modal-box" style="max-width: 900px; width: 95%;">
+    <div class="modal-title">
+      <span id="data-modal-title">Filtered Records</span>
+      <div class="modal-close" onclick="closeDataModal()"><i class="ti ti-x"></i></div>
+    </div>
+    <div class="tbl-wrap" style="max-height: 500px; overflow-y: auto;">
+      <div id="data-modal-table"></div>
+    </div>
+  </div>
+</div>
 <div class="shell">
 
 <!-- ═══════════════ SIDEBAR ═══════════════ -->
@@ -592,26 +602,35 @@ tbody td:last-child{border-right:none}
     <!-- ════════════ HOME ════════════ -->
     <div class="page active" id="page-home">
       <div class="kpi-grid g4">
-        <div class="kpi"><div class="kpi-bar b-blue"></div>
+        
+        <div class="kpi" onclick="handleKPIClick('total')" style="cursor:pointer;" title="View all Detailed Records">
+          <div class="kpi-bar b-blue"></div>
           <div class="kpi-label"><i class="ti ti-file-description"></i> Total ECNs (All)</div>
           <div class="kpi-val" id="h-total">—</div>
           <div class="kpi-delta d-neutral" id="h-total-sub">Loading data…</div>
         </div>
-        <div class="kpi"><div class="kpi-bar b-teal"></div>
+        
+        <div class="kpi" onclick="handleKPIClick('closed')" style="cursor:pointer;" title="View Implemented Records">
+          <div class="kpi-bar b-teal"></div>
           <div class="kpi-label"><i class="ti ti-circle-check"></i> Implemented / Closed</div>
           <div class="kpi-val" id="h-closed">—</div>
           <div class="kpi-delta d-up" id="h-rate">—</div>
         </div>
-        <div class="kpi"><div class="kpi-bar b-amber"></div>
+        
+        <div class="kpi" onclick="handleKPIClick('open')" style="cursor:pointer;" title="View Pending Records">
+          <div class="kpi-bar b-amber"></div>
           <div class="kpi-label"><i class="ti ti-clock-hour-4"></i> Open / Pending</div>
           <div class="kpi-val" id="h-open">—</div>
           <div class="kpi-delta d-down" id="h-open-sub">Active items</div>
         </div>
-        <div class="kpi"><div class="kpi-bar b-purple"></div>
+        
+        <div class="kpi" onclick="handleKPIClick('tab')" style="cursor:pointer;" title="View TAB Platform Records">
+          <div class="kpi-bar b-purple"></div>
           <div class="kpi-label"><i class="ti ti-device-tablet"></i> TAB Platform ECNs</div>
           <div class="kpi-val" id="h-tab">—</div>
           <div class="kpi-delta d-neutral">Tab total</div>
         </div>
+        
       </div>
 
       <div class="two-col">
@@ -3069,6 +3088,83 @@ function injectSparkCanvases() {
   });
 }
 
+/* ═══════════════════════════════════════════════
+   KPI CLICK ROUTING (POPUP MODAL) - CORRECTED
+═══════════════════════════════════════════════ */
+function closeDataModal() {
+    document.getElementById('data-modal').classList.remove('open');
+}
+
+async function handleKPIClick(filterType) {
+    // 1. Ensure the Detailed Records data has been fetched in the background
+    if (!loaded.has('detailed') || _detRaw.length === 0) {
+        toast('Loading detailed data...', 'ti-loader');
+        await loadDetailed();
+    }
+
+    let filteredData = [];
+    let modalTitle = "";
+
+    // 2. Filter the data based on which KPI card was clicked
+    if (filterType === 'total') {
+        filteredData = _detRaw;
+        modalTitle = "Total ECNs (All Platforms)";
+    } else if (filterType === 'closed') {
+        // FIX: Match Home KPI logic (check if Customer ECN No contains "Close")
+        filteredData = _detRaw.filter(r => isClose(r['CUSTOMER ECN NO.'] || ''));
+        modalTitle = "Implemented / Closed ECNs";
+    } else if (filterType === 'open') {
+        // FIX: Anything that is NOT closed is pending
+        filteredData = _detRaw.filter(r => !isClose(r['CUSTOMER ECN NO.'] || ''));
+        modalTitle = "Open / Pending ECNs";
+    } else if (filterType === 'tab') {
+        filteredData = _detRaw.filter(r => r.__source === 'TAB');
+        modalTitle = "TAB Platform ECNs";
+    }
+
+    // 3. Define the columns we want to show in the popup preview
+    const colsToShow = ['DATE', 'MODEL', 'ECN NO.','CUSTOMER ECN NO.', 'IMPLEMENTED / NOT IMPLEMENTED', '__source'];
+
+    // 4. Build the HTML table
+    let tableHTML = '<table><thead><tr>';
+    colsToShow.forEach(c => {
+        // Rename the internal __source column for the UI
+        tableHTML += `<th>${c === '__source' ? 'Platform' : c}</th>`;
+    });
+    tableHTML += '</tr></thead><tbody>';
+
+    if (filteredData.length === 0) {
+        tableHTML += `<tr><td colspan="${colsToShow.length}" style="text-align:center; padding: 20px;">No records found.</td></tr>`;
+    } else {
+        // Limit to 500 rows to prevent the popup from lagging
+        filteredData.slice(0, 500).forEach(r => {
+            tableHTML += '<tr>';
+            colsToShow.forEach(c => {
+                let val = (r[c] || '').toString();
+                
+                // Add status tags for styling
+                if (c === 'IMPLEMENTED / NOT IMPLEMENTED') {
+                    // Make sure the tag matches the actual "Close" status
+                    const isDone = isClose(r['CUSTOMER ECN NO.'] || '');
+                    val = `<span class="tag ${isDone ? 'tag-green' : 'tag-amber'}">${val || (isDone ? 'Implemented' : 'Pending')}</span>`;
+                } else if (c === '__source') {
+                    // Color code the platform tags
+                    const colors = {'TAB': 'tag-purple', 'SVN': 'tag-teal', 'Non-SVN': 'tag-blue'};
+                    val = `<span class="tag ${colors[val] || 'tag-blue'}">${val}</span>`;
+                }
+                
+                tableHTML += `<td>${val || '<span style="color:var(--grey-300)">—</span>'}</td>`;
+            });
+            tableHTML += '</tr>';
+        });
+    }
+    tableHTML += '</tbody></table>';
+
+    // 5. Inject the title and table into the modal, then open it
+    document.getElementById('data-modal-title').textContent = `${modalTitle} (${filteredData.length.toLocaleString()} records)`;
+    document.getElementById('data-modal-table').innerHTML = tableHTML;
+    document.getElementById('data-modal').classList.add('open');
+}
 /* ═══════════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════════ */
