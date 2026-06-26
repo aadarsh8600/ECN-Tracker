@@ -890,7 +890,14 @@ tbody td:last-child{border-right:none}
       </div>
       <div class="card">
         <div class="tbl-toolbar">
-          <div class="search-box"><i class="ti ti-search"></i><input type="text" placeholder="Search model, ECN, remarks…" id="fd-search" oninput="filterTable('fd')"></div>
+          <div class="search-box">
+            <i class="ti ti-search"></i>
+            <input type="text" placeholder="Search model, ECN, remarks…" id="fd-search" oninput="filterTable('fd')">
+          </div>
+          <div class="search-box">
+            <i class="ti ti-filter"></i>
+            <input type="text" placeholder="Filter within results…" id="fd-search2" oninput="filterTable('fd')">
+          </div>
           <span class="tbl-count" id="fd-count"></span>
           <button class="dl-btn" onclick="downloadCSV('fd')"><i class="ti ti-download"></i> Export CSV</button>
         </div>
@@ -1068,7 +1075,14 @@ tbody td:last-child{border-right:none}
       </div>
       <div class="card">
         <div class="tbl-toolbar">
-          <div class="search-box"><i class="ti ti-search"></i><input type="text" placeholder="Search…" id="tf-search" oninput="filterTable('tf')"></div>
+          <div class="search-box">
+            <i class="ti ti-search"></i>
+            <input type="text" placeholder="Search…" id="tf-search" oninput="filterTable('tf')">
+          </div>
+          <div class="search-box">
+            <i class="ti ti-filter"></i>
+            <input type="text" placeholder="Filter within results…" id="tf-search2" oninput="filterTable('tf')">
+          </div>
           <span class="tbl-count" id="tf-count"></span>
           <button class="dl-btn" onclick="downloadCSV('tf')"><i class="ti ti-download"></i> Export CSV</button>
         </div>
@@ -1399,7 +1413,7 @@ function setGlobalDateRange(daysAgo) {
 }
 
 /* ═══════════════════════════════════════════════
-   CSV LOADER (With Forward-Fill limited to Status pages)
+   CSV LOADER (With Custom Forward-Fill for Future Date)
 ═══════════════════════════════════════════════ */
 function loadCSV(key) {
   return new Promise((res, rej) => {
@@ -1414,20 +1428,25 @@ function loadCSV(key) {
       download: true, header: true, skipEmptyLines: true,
       complete: r => { 
         
-        // --- NEW: Forward-fill merged (blank) cells ONLY for specific status pages ---
-        const targetPages = ['nsStatus', 'svStatus', 'tabStat'];
+        // --- NEW: Forward-fill merged (blank) cells ---
+        const targetPages = ['nsStatus', 'svStatus', 'tabStat', 'tabFut'];
         
         if (targetPages.includes(key)) {
-            // Only fill these specific grouping columns
-            const columnsToFill = [
-              'SL NO', 'Receiving Date', 'Acknowledge By', 'Model', 'MODEL', 
-              'Customer ECN No.', 'CUSTOMER ECN NO.', 
-              'ECN Type'
+            // Master list of columns we usually want to carry forward
+            let columnsToFill = [
+              'SL NO', 'SR NO', 'Receiving Date', 'Acknowledge By', 'Model', 'MODEL', 
+              'FG/SFG Code', 'FG/SFG code', 'Customer ECN No.', 'CUSTOMER ECN NO.', 
+              'SAP ECN No', 'ECN Type'
             ];
+
+            // 🛑 EXCEPTION: Remove 'ECN Type' if we are loading TAB Future Date
+            if (key === 'tabFut') {
+                columnsToFill = columnsToFill.filter(col => col !== 'ECN Type');
+            }
 
             // Identify the "anchor" column that signifies a brand new record block
             const csvCols = Object.keys(r.data[0] || {});
-            const possibleAnchors = ['SL NO', 'Receiving Date'];
+            const possibleAnchors = ['SL NO', 'SR NO', 'Receiving Date'];
             const anchorCol = csvCols.find(c => possibleAnchors.includes(c)) || csvCols[0];
 
             let lastRowData = {};
