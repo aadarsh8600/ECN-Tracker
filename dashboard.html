@@ -845,14 +845,24 @@ tbody td:last-child{border-right:none}
         <div class="kpi"><div class="kpi-bar b-red"></div><div class="kpi-label"><i class="ti ti-minus"></i> Delete Parts</div><div class="kpi-val" id="svs-del">—</div><div class="kpi-delta d-down">Removed</div></div>
         <div class="kpi"><div class="kpi-bar b-purple"></div><div class="kpi-label"><i class="ti ti-file-description"></i> Unique ECNs</div><div class="kpi-val" id="svs-ecn">—</div><div class="kpi-delta d-neutral">ECN count</div></div>
       </div>
-      <div class="card">
-        <div class="card-hd">
-          <div class="card-title"><i class="ti ti-chart-line"></i> ECN Trend</div>
-          <div class="trend-tabs" id="svs-trend-tabs">
-            <div class="trend-tab" data-p="daily">Daily</div><div class="trend-tab active" data-p="weekly">Weekly</div><div class="trend-tab" data-p="monthly">Monthly</div><div class="trend-tab" data-p="yearly">Yearly</div>
+      <div class="two-col">
+        <div class="card">
+          <div class="card-hd">
+            <div class="card-title"><i class="ti ti-chart-line"></i> ECN Trend</div>
+            <div class="trend-tabs" id="svs-trend-tabs">
+              <div class="trend-tab" data-p="daily">Daily</div><div class="trend-tab active" data-p="weekly">Weekly</div><div class="trend-tab" data-p="monthly">Monthly</div><div class="trend-tab" data-p="yearly">Yearly</div>
+            </div>
+          </div>
+          <div class="chart-wrap" style="height:220px"><canvas id="svs-chart"></canvas></div>
+        </div>
+        
+        <div class="card">
+          <div class="card-hd"><div class="card-title"><i class="ti ti-chart-donut"></i> Change Type Breakdown</div></div>
+          <div style="display:flex;align-items:center;gap:16px;height:200px">
+            <div style="flex:1;height:180px"><canvas id="svs-donut"></canvas></div>
+            <div id="svs-type-legend" style="flex:1"></div>
           </div>
         </div>
-        <div class="chart-wrap" style="height:230px"><canvas id="svs-chart"></canvas></div>
       </div>
       <div class="card">
         <div class="tbl-toolbar">
@@ -1031,14 +1041,24 @@ tbody td:last-child{border-right:none}
         <div class="kpi"><div class="kpi-bar b-red"></div><div class="kpi-label"><i class="ti ti-minus"></i> Delete Parts</div><div class="kpi-val" id="tss-del">—</div><div class="kpi-delta d-down">Removed</div></div>
         <div class="kpi"><div class="kpi-bar b-blue"></div><div class="kpi-label"><i class="ti ti-file-description"></i> Unique ECNs</div><div class="kpi-val" id="tss-ecn">—</div><div class="kpi-delta d-neutral">ECN count</div></div>
       </div>
-      <div class="card">
-        <div class="card-hd">
-          <div class="card-title"><i class="ti ti-chart-line"></i> ECN Trend</div>
-          <div class="trend-tabs" id="tss-trend-tabs">
-            <div class="trend-tab" data-p="daily">Daily</div><div class="trend-tab active" data-p="weekly">Weekly</div><div class="trend-tab" data-p="monthly">Monthly</div><div class="trend-tab" data-p="yearly">Yearly</div>
+      <div class="two-col">
+        <div class="card">
+          <div class="card-hd">
+            <div class="card-title"><i class="ti ti-chart-line"></i> ECN Trend</div>
+            <div class="trend-tabs" id="tss-trend-tabs">
+              <div class="trend-tab" data-p="daily">Daily</div><div class="trend-tab active" data-p="weekly">Weekly</div><div class="trend-tab" data-p="monthly">Monthly</div><div class="trend-tab" data-p="yearly">Yearly</div>
+            </div>
+          </div>
+          <div class="chart-wrap" style="height:220px"><canvas id="tss-chart"></canvas></div>
+        </div>
+        
+        <div class="card">
+          <div class="card-hd"><div class="card-title"><i class="ti ti-chart-donut"></i> Change Type Breakdown</div></div>
+          <div style="display:flex;align-items:center;gap:16px;height:200px">
+            <div style="flex:1;height:180px"><canvas id="tss-donut"></canvas></div>
+            <div id="tss-type-legend" style="flex:1"></div>
           </div>
         </div>
-        <div class="chart-wrap" style="height:230px"><canvas id="tss-chart"></canvas></div>
       </div>
       <div class="card">
         <div class="tbl-toolbar">
@@ -1919,18 +1939,31 @@ async function loadNsStatus() {
 async function loadSvStatus() {
   try {
     const rows=await loadCSV('svStatus');
-// --- YOUR NEW CASE-INSENSITIVE LOGIC ---
+    
+    // --- YOUR NEW CASE-INSENSITIVE LOGIC ---
     const clean = (val) => (val === undefined || val === null) ? '' : val.toString().trim().toLowerCase();
     
     const models = new Set(rows.map(r=>clean(r.Model||r.MODEL)).filter(Boolean)).size;
     const add = rows.filter(r=>clean(r['Change Type']) === 'add').length;
     const del_ = rows.filter(r=>clean(r['Change Type']) === 'delete').length;
+    // Added 'chg' specifically to feed the donut chart
+    const chg = rows.filter(r=>clean(r['Change Type']) === 'change').length; 
     const ecns = new Set(rows.map(r=>clean(r['Customer ECN No.']||r['CUSTOMER ECN NO.'])).filter(Boolean)).size;
     // ---------------------------------------
+
     document.getElementById('svs-models').textContent=fmt(models);
     document.getElementById('svs-add').textContent=fmt(add);
     document.getElementById('svs-del').textContent=fmt(del_);
     document.getElementById('svs-ecn').textContent=fmt(ecns);
+
+    // --- NEW DONUT CHART RENDERING ---
+    makeDonut('svs-donut', ['Add', 'Delete', 'Change'], [add, del_, chg], [COLORS.teal, COLORS.red, COLORS.amber]);
+    document.getElementById('svs-type-legend').innerHTML=`
+      <div class="donut-leg-item"><div class="donut-leg-dot" style="background:${COLORS.teal}"></div><span>Add</span><div class="donut-leg-val">${fmt(add)}</div></div>
+      <div class="donut-leg-item"><div class="donut-leg-dot" style="background:${COLORS.red}"></div><span>Delete</span><div class="donut-leg-val">${fmt(del_)}</div></div>
+      <div class="donut-leg-item"><div class="donut-leg-dot" style="background:${COLORS.amber}"></div><span>Change</span><div class="donut-leg-val">${fmt(chg)}</div></div>`;
+    // ---------------------------------
+
     const preferred=['SL NO','Receiving Date','Acknowledge By','Model','FG/SFG Code','Customer ECN No.','ECN Type','Change Type','SAP ECN No','Delete Part','Add Part','Description','Alternate Part','Alternate Part Description','Main Part','Delete Qty','Add Qty'];
     const cols=preferred.filter(c=>rows[0]&&c in rows[0]);
     setTData('svs',rows,cols.length?cols:Object.keys(rows[0]||{}).slice(0,10),{'Change Type':v=>/add/i.test(v)?'tag-green':/delete/i.test(v)?'tag-red':'tag-amber'},'svs-table','svs-count');
@@ -2059,18 +2092,31 @@ async function loadTabStatus() {
     const modelField=Object.keys(rows[0]||{}).find(k=>/model/i.test(k))||'Model';
     const ecnField=Object.keys(rows[0]||{}).find(k=>/customer.*ecn|ecn.*no/i.test(k))||'Customer ECN No.';
     const changeField=Object.keys(rows[0]||{}).find(k=>/change.*type/i.test(k))||'Change Type';
-// --- YOUR NEW CASE-INSENSITIVE LOGIC ---
+    
+    // --- YOUR NEW CASE-INSENSITIVE LOGIC ---
     const clean = (val) => (val === undefined || val === null) ? '' : val.toString().trim().toLowerCase();
     
     const models = new Set(rows.map(r=>clean(r[modelField])).filter(Boolean)).size;
     const add = rows.filter(r=>clean(r[changeField]) === 'add').length;
     const del_ = rows.filter(r=>clean(r[changeField]) === 'delete').length;
+    // Added 'chg' specifically to feed the donut chart
+    const chg = rows.filter(r=>clean(r[changeField]) === 'change').length;
     const ecns = new Set(rows.map(r=>clean(r[ecnField])).filter(Boolean)).size;
     // ---------------------------------------
+
     document.getElementById('tss-models').textContent=fmt(models);
     document.getElementById('tss-add').textContent=fmt(add);
     document.getElementById('tss-del').textContent=fmt(del_);
     document.getElementById('tss-ecn').textContent=fmt(ecns);
+
+    // --- NEW DONUT CHART RENDERING ---
+    makeDonut('tss-donut', ['Add', 'Delete', 'Change'], [add, del_, chg], [COLORS.teal, COLORS.red, COLORS.amber]);
+    document.getElementById('tss-type-legend').innerHTML=`
+      <div class="donut-leg-item"><div class="donut-leg-dot" style="background:${COLORS.teal}"></div><span>Add</span><div class="donut-leg-val">${fmt(add)}</div></div>
+      <div class="donut-leg-item"><div class="donut-leg-dot" style="background:${COLORS.red}"></div><span>Delete</span><div class="donut-leg-val">${fmt(del_)}</div></div>
+      <div class="donut-leg-item"><div class="donut-leg-dot" style="background:${COLORS.amber}"></div><span>Change</span><div class="donut-leg-val">${fmt(chg)}</div></div>`;
+    // ---------------------------------
+
     const cols=Object.keys(rows[0]||{}).slice(0,17);
     const tagCols={};
     tagCols[changeField]=v=>/add/i.test(v)?'tag-green':/delete/i.test(v)?'tag-red':'tag-amber';
