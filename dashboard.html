@@ -411,9 +411,12 @@ tbody td:last-child{border-right:none}
   }
   
   /* 2. Release the 100vh height and hidden overflow restrictions */
+/* 2. Release the 100vh height and hidden overflow restrictions */
   html, body, .shell, .main, .body {
     height: auto !important;
     min-height: auto !important;
+    width: 100% !important;       /* ADD THIS */
+    max-width: 100% !important;   /* ADD THIS */
     overflow: visible !important;
     display: block !important;
     padding: 0 !important;
@@ -422,10 +425,13 @@ tbody td:last-child{border-right:none}
   }
   
   /* 3. Force ALL pages to render, and put each on a new physical piece of paper */
+/* 3. Force ALL pages to render, and put each on a new physical piece of paper */
   .page {
-    display: flex !important;
+    display: block !important; /* Changed to block for full-width paper printing */
+    width: 100% !important;    /* Force full width */
+    max-width: 100% !important;
     break-after: page; 
-    page-break-after: always; /* Fallback for older browsers */
+    page-break-after: always;
     margin-bottom: 30px;
   }
   .page:last-child {
@@ -450,6 +456,19 @@ tbody td:last-child{border-right:none}
   body {
     font-size: 11px;
     color: #000;
+  }
+  /* 6. Force charts and cards to expand to the full width of the paper */
+  .card, .chart-wrap, .kpi {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 0 0 100% !important; 
+    display: block !important;
+  }
+
+  /* 7. Ensure the chart canvas stretches inside the card */
+  canvas, svg, .echarts-instance {
+    width: 100% !important;
+    max-width: 100% !important;
   }
 }
 
