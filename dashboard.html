@@ -2606,33 +2606,19 @@ function filterDetailed(baseOverride) {
   const year = _getDetYear();
   let base = baseOverride !== undefined ? baseOverride : _detRaw;
   
+  // 1. Apply top-level Year and Platform views
   if (baseOverride === undefined) {
-    // Match the new dropdown logic
     if (view === 'all') {
       base = base.filter(r => r.__source === 'SVN' || r.__source === 'Non-SVN');
     } else if (view !== 'all-total') {
       base = base.filter(r => r.__source === view);
     }
-    
-    if (year !== 'all') base = base.filter(r=>{ const d=_detParseDate(r.__received); return d&&d.getFullYear()===parseInt(year); });
+    if (year !== 'all') {
+      base = base.filter(r=>{ const d=_detParseDate(r.__received); return d&&d.getFullYear()===parseInt(year); });
+    }
   }
 
-  // Split your dataset into three precise groups
-  const within = base.filter(r=>r.__timeDiff!==null&&r.__timeDiff <= 2);
-  const after  = base.filter(r=>r.__timeDiff!==null&&r.__timeDiff > 2);
-  const pending = base.filter(r=>r.__timeDiff === null);
-
-  // Update badge counter elements on the tab row headers
-  const cntW = document.getElementById('det-within-cnt');
-  const cntA = document.getElementById('det-after-cnt');
-  const cntP = document.getElementById('det-pending-cnt');
-  if (cntW) cntW.textContent = within.length.toLocaleString();
-  if (cntA) cntA.textContent = after.length.toLocaleString();
-  if (cntP) cntP.textContent = pending.length.toLocaleString();
-
-  // Apply lookups based on active tab state
-  const q    = (document.getElementById('det-ecn-search')?.value||'').toLowerCase();
-  // Populate the week filter dropdown
+  // 2. Populate the week dropdown options (Do this BEFORE local filtering so options don't disappear)
   const wkSel = document.getElementById('det-week-filter');
   if (wkSel) {
     const currentVal = wkSel.value;
@@ -2642,28 +2628,56 @@ function filterDetailed(baseOverride) {
       allWeeks.map(w => `<option value="${w}" ${w === currentVal ? 'selected' : ''}>${w}</option>`).join('');
   }
 
-  const wkF  = document.getElementById('det-week-filter')?.value||'';
+  // 3. Grab the active local filters
+  const q   = (document.getElementById('det-ecn-search')?.value||'').toLowerCase();
+  const wkF = document.getElementById('det-week-filter')?.value||'';
 
+  // 4. Apply Local Search and Week Filters to the dataset FIRST
+  let filteredBase = base;
+  if (q) {
+    filteredBase = filteredBase.filter(r => Object.values(r).some(v => (v||'').toString().toLowerCase().includes(q)));
+  }
+  if (wkF) {
+    filteredBase = filteredBase.filter(r => r.__weekLabel === wkF);
+  }
+
+  // 5. NOW split the fully filtered data into your three tab groups
+  const within  = filteredBase.filter(r => r.__timeDiff !== null && r.__timeDiff <= 2);
+  const after   = filteredBase.filter(r => r.__timeDiff !== null && r.__timeDiff > 2);
+  const pending = filteredBase.filter(r => r.__timeDiff === null);
+
+  // 6. Update the badge counters on the tabs
+  const cntW = document.getElementById('det-within-cnt');
+  const cntA = document.getElementById('det-after-cnt');
+  const cntP = document.getElementById('det-pending-cnt');
+  if (cntW) cntW.textContent = within.length.toLocaleString();
+  if (cntA) cntA.textContent = after.length.toLocaleString();
+  if (cntP) cntP.textContent = pending.length.toLocaleString();
+
+  // 7. Decide which group to actually show in the table based on the clicked tab
   let rows = within;
   if (_detTab === 'within') rows = within;
   else if (_detTab === 'after') rows = after;
   else if (_detTab === 'pending') rows = pending;
 
-  if (q)   rows = rows.filter(r=>Object.values(r).some(v=>(v||'').toString().toLowerCase().includes(q)));
-  if (wkF) rows = rows.filter(r=>r.__weekLabel===wkF);
-
   _detFiltered = rows;
   _detPage = 1;
 
+  // 8. Render the table
   const DISPLAY_COLS = ['WEEK NO.','DATE','MODEL','ECN NO.','SAP IMPLEMENTATION DATE','WIND-CHILL IMPLEMENTATION DATE','IMPLEMENTED / NOT IMPLEMENTED'];
   const cols = DISPLAY_COLS.filter(c=>(_detRaw[0]&&c in _detRaw[0])||c==='WEEK NO.');
-  TDATA['det'] = { rows: _detFiltered, cols, tagCols:{
-    'IMPLEMENTED / NOT IMPLEMENTED': v=>isImpl(v)?'tag-green':'tag-amber',
-  }, tableEl:'det-table', countEl:null, filtered:_detFiltered };
+  
+  TDATA['det'] = { 
+    rows: _detFiltered, 
+    cols, 
+    tagCols: { 'IMPLEMENTED / NOT IMPLEMENTED': v=>isImpl(v)?'tag-green':'tag-amber' }, 
+    tableEl: 'det-table', 
+    countEl: null, 
+    filtered: _detFiltered 
+  };
 
   _renderDetTable();
 }
-
 function _renderDetTable() {
   const total = _detFiltered.length;
   const totalPages = Math.max(1, Math.ceil(total / DET_PAGE_SIZE));
