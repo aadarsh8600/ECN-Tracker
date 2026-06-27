@@ -838,6 +838,12 @@ tbody td:last-child{border-right:none}
           <div class="search-box">
             <i class="ti ti-filter"></i>
             <input type="text" placeholder="Filter within results…" id="nss-search2" oninput="filterTable('nss')">
+            <span style="cursor:pointer; font-size:11px; font-weight:600; color:var(--grey-400);" 
+                  onmouseover="this.style.color='var(--grey-700)'" 
+                  onmouseout="this.style.color='var(--grey-400)'"
+                  onclick="document.getElementById('nss-search2').value=''; filterTable('nss');">
+              Clear
+            </span>
           </div>
           <select class="tbl-filter-select" id="nss-type-filter" onchange="filterTable('nss')">
             <option value="">All Change Types</option>
@@ -892,6 +898,12 @@ tbody td:last-child{border-right:none}
           <div class="search-box">
             <i class="ti ti-filter"></i>
             <input type="text" placeholder="Filter within results…" id="svs-search2" oninput="filterTable('svs')">
+            <span style="cursor:pointer; font-size:11px; font-weight:600; color:var(--grey-400);" 
+                  onmouseover="this.style.color='var(--grey-700)'" 
+                  onmouseout="this.style.color='var(--grey-400)'"
+                  onclick="document.getElementById('svs-search2').value=''; filterTable('svs');">
+              Clear
+            </span>
           </div>
           <select class="tbl-filter-select" id="svs-type-filter" onchange="filterTable('svs')">
             <option value="">All Change Types</option>
@@ -925,7 +937,13 @@ tbody td:last-child{border-right:none}
           </div>
           <div class="search-box">
             <i class="ti ti-filter"></i>
-            <input type="text" placeholder="Filter within results…" id="fd-search2" oninput="filterTable('fd')">
+            <input type="text" placeholder="Filter within results…" id="fd-search2" oninput="filterTable('fd  ')">
+            <span style="cursor:pointer; font-size:11px; font-weight:600; color:var(--grey-400);" 
+                  onmouseover="this.style.color='var(--grey-700)'" 
+                  onmouseout="this.style.color='var(--grey-400)'"
+                  onclick="document.getElementById('fd-search2').value=''; filterTable('fd');">
+              Clear
+            </span>
           </div>
           <span class="tbl-count" id="fd-count"></span>
           <button class="dl-btn" onclick="downloadCSV('fd')"><i class="ti ti-download"></i> Export CSV</button>
@@ -1088,6 +1106,12 @@ tbody td:last-child{border-right:none}
           <div class="search-box">
             <i class="ti ti-filter"></i>
             <input type="text" placeholder="Filter within results…" id="tss-search2" oninput="filterTable('tss')">
+            <span style="cursor:pointer; font-size:11px; font-weight:600; color:var(--grey-400);" 
+                  onmouseover="this.style.color='var(--grey-700)'" 
+                  onmouseout="this.style.color='var(--grey-400)'"
+                  onclick="document.getElementById('tss-search2').value=''; filterTable('tss');">
+              Clear
+            </span>
           </div>
           <select class="tbl-filter-select" id="tss-type-filter" onchange="filterTable('tss')">
             <option value="">All Change Types</option>
@@ -1121,6 +1145,12 @@ tbody td:last-child{border-right:none}
           <div class="search-box">
             <i class="ti ti-filter"></i>
             <input type="text" placeholder="Filter within results…" id="tf-search2" oninput="filterTable('tf')">
+            <span style="cursor:pointer; font-size:11px; font-weight:600; color:var(--grey-400);" 
+                  onmouseover="this.style.color='var(--grey-700)'" 
+                  onmouseout="this.style.color='var(--grey-400)'"
+                  onclick="document.getElementById('tf-search2').value=''; filterTable('tf');">
+              Clear
+            </span>
           </div>
           <span class="tbl-count" id="tf-count"></span>
           <button class="dl-btn" onclick="downloadCSV('tf')"><i class="ti ti-download"></i> Export CSV</button>
@@ -1330,22 +1360,22 @@ function debouncedGlobalFilter() {
   }, 500);
 }
 
-function applyGlobalFilter() {
-  toast('Applying global filters...', 'ti-filter');
+// function applyGlobalFilter() {
+//   toast('Applying global filters...', 'ti-filter');
   
-  // 1. Tell the app that all background pages need to be re-loaded 
-  // with the new filter next time they are viewed (or printed)
-  Object.keys(PAGE_LOADERS).forEach(page => {
-    if (page !== curPage) {
-      loaded.delete(page);
-    }
-  });
+//   // 1. Tell the app that all background pages need to be re-loaded 
+//   // with the new filter next time they are viewed (or printed)
+//   Object.keys(PAGE_LOADERS).forEach(page => {
+//     if (page !== curPage) {
+//       loaded.delete(page);
+//     }
+//   });
 
-  // 2. Immediately reload the page you are currently looking at
-  if (PAGE_LOADERS[curPage]) {
-    PAGE_LOADERS[curPage]().catch(e => console.error(e));
-  }
-}
+//   // 2. Immediately reload the page you are currently looking at
+//   if (PAGE_LOADERS[curPage]) {
+//     PAGE_LOADERS[curPage]().catch(e => console.error(e));
+//   }
+// }
 function applyToolbarSort(key) {
   const select = document.getElementById(key + '-sort');
   if (!select || !select.value) return;
@@ -1379,15 +1409,10 @@ function applyToolbarSort(key) {
   // Render the updated table using your paginated renderer
   renderTablePaged(key, sorted, src.cols, src.tagCols, src.tableEl, src.countEl);
 }
-function clearGlobalFilter() {
-  document.getElementById('global-model').value = '';
-  document.getElementById('global-start').value = '';
-  document.getElementById('global-end').value = '';
-  applyGlobalFilter();
-}
 
 function applyGlobalFilter() {
-  // If a page is active, re-run its loader to update charts, KPIs, and tables
+  _detRaw = []; // Force detailed records to rebuild
+  loaded.delete('detailed');
   if (PAGE_LOADERS[curPage]) {
     toast('Applying global filters...', 'ti-filter');
     PAGE_LOADERS[curPage]().catch(e => console.error(e));
@@ -1716,22 +1741,22 @@ function sortTable(elId, colKey) {
   renderTable(elId,sorted,src.cols,src.tagCols,src.countEl);
 }
 
-function filterTable(key) {
-  const src=TDATA[key]; if(!src) return;
-  const q  = (document.getElementById(key+'-search') ?.value || '').toLowerCase();
+// function filterTable(key) {
+//   const src=TDATA[key]; if(!src) return;
+//   const q  = (document.getElementById(key+'-search') ?.value || '').toLowerCase();
 
-  const stFilter=document.getElementById(key+'-status-filter')?.value||'';
-  const tyFilter=document.getElementById(key+'-type-filter')?.value||'';
-  const srcFilter=document.getElementById(key+'-src')?.value||'';
-  let rows=src.rows;
-  if(q)        rows=rows.filter(r=>Object.values(r).some(v=>(v||'').toLowerCase().includes(q)));
+//   const stFilter=document.getElementById(key+'-status-filter')?.value||'';
+//   const tyFilter=document.getElementById(key+'-type-filter')?.value||'';
+//   const srcFilter=document.getElementById(key+'-src')?.value||'';
+//   let rows=src.rows;
+//   if(q)        rows=rows.filter(r=>Object.values(r).some(v=>(v||'').toLowerCase().includes(q)));
   
-  if(stFilter) rows=rows.filter(r=>Object.values(r).some(v=>(v||'').toUpperCase().includes(stFilter)));
-  if(tyFilter) rows=rows.filter(r=>Object.values(r).some(v=>(v||'').toUpperCase().includes(tyFilter)));
-  if(srcFilter)rows=rows.filter(r=>(r.__source||'').includes(srcFilter));
-  src.filtered=rows;
-  renderTable(src.tableEl, rows, src.cols, src.tagCols, src.countEl);
-}
+//   if(stFilter) rows=rows.filter(r=>Object.values(r).some(v=>(v||'').toUpperCase().includes(stFilter)));
+//   if(tyFilter) rows=rows.filter(r=>Object.values(r).some(v=>(v||'').toUpperCase().includes(tyFilter)));
+//   if(srcFilter)rows=rows.filter(r=>(r.__source||'').includes(srcFilter));
+//   src.filtered=rows;
+//   renderTable(src.tableEl, rows, src.cols, src.tagCols, src.countEl);
+// }
 
 function downloadCSV(key) {
   const src = TDATA[key]; 
@@ -2248,8 +2273,16 @@ async function loadDetailed() {
       
       // For TAB rows: if no impl date but CUSTOMER ECN NO. says "Close"/"Implemented",
       // use SAP date as fallback; if still missing, diff stays null (goes to pending)
-      const diff = _detDiffDays(received, implDate);
-      
+
+
+      // const diff = _detDiffDays(received, implDate);
+
+
+      let diff = _detDiffDays(received, implDate);
+      if (diff === null && src === 'TAB' && isClose(r['CUSTOMER ECN NO.'] || '')) {
+        diff = 0;
+      }
+
       // Week label: TAB sheet has no WEEK NO, so always compute from date
       const weekNo = r['WEEK NO'] || r['WEEK NO.'] || '';
       const weekLabel = _detWeekLabel(received, weekNo);
@@ -2599,6 +2632,16 @@ function filterDetailed(baseOverride) {
 
   // Apply lookups based on active tab state
   const q    = (document.getElementById('det-ecn-search')?.value||'').toLowerCase();
+  // Populate the week filter dropdown
+  const wkSel = document.getElementById('det-week-filter');
+  if (wkSel) {
+    const currentVal = wkSel.value;
+    const allWeeks = [...new Set(base.map(r => r.__weekLabel).filter(Boolean))]
+      .sort((a, b) => _detWeekSort(b) - _detWeekSort(a));
+    wkSel.innerHTML = '<option value="">Showing all weeks…</option>' +
+      allWeeks.map(w => `<option value="${w}" ${w === currentVal ? 'selected' : ''}>${w}</option>`).join('');
+  }
+
   const wkF  = document.getElementById('det-week-filter')?.value||'';
 
   let rows = within;
@@ -2787,6 +2830,7 @@ function navigate(page) {
 function refreshAll() {
   Object.keys(CACHE).forEach(k=>delete CACHE[k]);
   loaded.clear();
+  _detRaw = [];
   Object.keys(TDATA).forEach(k=>delete TDATA[k]);
   toast('Refreshing all data…','ti-refresh');
   navigate(curPage);
@@ -3012,8 +3056,7 @@ function buildSparklines(nsData, svData, tabData) {
   const svSpark  = closePctTrend(svData,'DATE',r=>isImpl(r['IMPLEMENTED / NOT IMPLEMENTED']||''),'weekly').data.slice(-12);
   const allCl    = [...nsData,...svData,...tabData];
   const totSpark = closePctTrend(allCl,'DATE',r=>isImpl(r['IMPLEMENTED / NOT IMPLEMENTED']||r['SAP IMPLEMENTATION']||''),'weekly').data.slice(-12);
-  const tabSpark = closePctTrend(tabData,'DATE',r=>isImpl(r['SAP IMPLEMENTATION']||r['IMPLEMENTED / NOT IMPLEMENTED']||''),'weekly').data.slice(-12);
-
+  const tabSpark = closePctTrend(tabData, 'DATE', r => isClose(r['CUSTOMER ECN NO.'] || ''), 'weekly').data.slice(-12);
   // Inject sparkline canvases into KPI cards if not already there
   [
     ['h-spark-total',  totSpark,  '#1E88E5'],
@@ -3149,7 +3192,7 @@ async function handleKPIClick(filterType) {
                     val = `<span class="tag ${isDone ? 'tag-green' : 'tag-amber'}">${val || (isDone ? 'Implemented' : 'Pending')}</span>`;
                 } else if (c === '__source') {
                     // Color code the platform tags
-                    const colors = {'TAB': 'tag-purple', 'SVN': 'tag-teal', 'Non-SVN': 'tag-blue'};
+                    const colors = {'TAB': 'tag-purple', 'SVN': 'tag-green', 'Non-SVN': 'tag-blue'};
                     val = `<span class="tag ${colors[val] || 'tag-blue'}">${val}</span>`;
                 }
                 
@@ -3195,6 +3238,7 @@ function startAutoRefresh() {
         if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT') {
             Object.keys(CACHE).forEach(k => delete CACHE[k]);
             loaded.clear();
+            _detRaw = [];
             if (PAGE_LOADERS[curPage]) PAGE_LOADERS[curPage]();
             toast('Live data auto-refreshed', 'ti-refresh');
         }
