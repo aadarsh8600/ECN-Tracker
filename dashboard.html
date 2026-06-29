@@ -3239,7 +3239,14 @@ async function handleKPIClick(filterType) {
         filteredData = _detRaw.filter(r => r.__source === 'TAB');
         modalTitle = "TAB Platform ECNs";
     }
-
+    // Sort by date descending (newest first)
+    filteredData = [...filteredData].sort((a, b) => {
+        const dA = _detParseDate(a['DATE'] || a['Date'] || '');
+        const dB = _detParseDate(b['DATE'] || b['Date'] || '');
+        const tA = dA ? dA.getTime() : 0;
+        const tB = dB ? dB.getTime() : 0;
+        return tB - tA; // descending
+    });
     // 3. Define the columns we want to show in the popup preview
     const colsToShow = ['DATE', 'MODEL', 'ECN NO.','CUSTOMER ECN NO.', 'IMPLEMENTED / NOT IMPLEMENTED', '__source'];
 
