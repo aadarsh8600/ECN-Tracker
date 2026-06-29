@@ -17,7 +17,7 @@ hide_st_style = """
             header {visibility: hidden;}
             footer {visibility: hidden;}
             .stApp {
-                background-color: #F8FAFC; 
+                background-color: #0D1117; 
             }
             .block-container {
                 padding-top: 0rem;
