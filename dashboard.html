@@ -499,16 +499,15 @@ tbody td:last-child{border-right:none}
       <span class="kbd">Esc</span><span class="kbd-desc">Close this dialog</span>
       <div class="kbd-section">Pages — Mobile</div>
       <span class="kbd">0</span><span class="kbd-desc">Detailed Records</span>
-      <span class="kbd">1</span><span class="kbd-desc">Model Wise</span>
-      <span class="kbd">2</span><span class="kbd-desc">Overall</span>
-      <span class="kbd">3</span><span class="kbd-desc">Non-SVN Summary</span>
-      <span class="kbd">4</span><span class="kbd-desc">Non-SVN Status</span>
-      <span class="kbd">5</span><span class="kbd-desc">Future Date</span>
-      <span class="kbd">6</span><span class="kbd-desc">SVN Summary</span>
-      <span class="kbd">7</span><span class="kbd-desc">SVN Status</span>
+      <span class="kbd">1</span><span class="kbd-desc">Non-SVN Summary</span>
+      <span class="kbd">2</span><span class="kbd-desc">Non-SVN Status</span>
+      <span class="kbd">3</span><span class="kbd-desc">Future Date</span>
+      <span class="kbd">4</span><span class="kbd-desc">SVN Summary</span>
+      <span class="kbd">5</span><span class="kbd-desc">SVN Status</span>
       <div class="kbd-section">Pages — Tab</div>
-      <span class="kbd">8</span><span class="kbd-desc">TAB Overall</span>
-      <span class="kbd">9</span><span class="kbd-desc">TAB Summary</span>
+      <span class="kbd">6</span><span class="kbd-desc">TAB Future Date</span>
+      <span class="kbd">7</span><span class="kbd-desc">TAB Summary</span>
+      <span class="kbd">8</span><span class="kbd-desc">TAB Status</span>
       
     </div>
   </div>
@@ -549,8 +548,6 @@ tbody td:last-child{border-right:none}
 
   <div class="sb-section">
     <div class="sb-label">📱 Mobile</div>
-    <div class="sb-item" data-page="model-wise"><i class="ti ti-device-mobile-stats"></i> Model Wise</div>
-    <div class="sb-item" data-page="overall"><i class="ti ti-layout-dashboard"></i> Overall</div>
     <div class="sb-item" data-page="non-svn-summary"><i class="ti ti-chart-line"></i> Non-SVN Summary</div>
     <div class="sb-item" data-page="non-svn-status"><i class="ti ti-clipboard-list"></i> Non-SVN Status</div>
     <div class="sb-item" data-page="future-date"><i class="ti ti-calendar-due"></i> Future Date</div>
@@ -560,7 +557,6 @@ tbody td:last-child{border-right:none}
 
   <div class="sb-section">
     <div class="sb-label">💻 Tab</div>
-    <div class="sb-item" data-page="tab-overall"><i class="ti ti-device-tablet"></i> TAB Overall</div>
     <div class="sb-item" data-page="tab-future"><i class="ti ti-calendar-due"></i> TAB Future Date</div>
     <div class="sb-item" data-page="tab-summary"><i class="ti ti-chart-line"></i> TAB ECN Summary</div>
     <div class="sb-item" data-page="tab-status"><i class="ti ti-clipboard-list"></i> TAB ECN Status</div>
@@ -621,6 +617,19 @@ tbody td:last-child{border-right:none}
     <div class="topbar-sep"></div>
     <span class="topbar-crumb" id="topbar-crumb">Overview Dashboard</span>
     <div class="topbar-right">
+      <div style="position:relative;" id="notif-wrap">
+        <button class="topbar-btn" onclick="toggleNotifPanel()" title="Upcoming ECN Alerts (Due Tomorrow)">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6"></path>
+            <path d="M9 17v1a3 3 0 0 0 6 0v-1"></path>
+          </svg>
+          <span id="notif-badge" style="display:none;position:absolute;top:2px;right:2px;background:var(--red-500);color:#fff;font-size:9px;font-weight:700;border-radius:10px;padding:1px 4px;line-height:1;"></span>
+        </button>
+        <div id="notif-panel" style="display:none;position:absolute;top:36px;right:0;width:320px;max-height:360px;overflow-y:auto;background:var(--white);border:1px solid var(--grey-200);border-radius:var(--r-md);box-shadow:var(--sh-lg);z-index:50;padding:10px;">
+          <div style="font-size:12px;font-weight:700;color:var(--grey-900);margin-bottom:8px;display:flex;align-items:center;gap:6px;"><i class="ti ti-alert-triangle" style="color:var(--amber-500)"></i> Due Today & Tomorrow</div>
+          <div id="notif-list" style="font-size:11px;color:var(--grey-600);">Loading…</div>
+        </div>
+      </div>
       <span class="pill pill-green pill-live">Live</span>
       <span class="pill pill-blue" id="date-pill">—</span>
       <button class="topbar-btn" onclick="document.body.classList.toggle('compact-mode'); toast('Toggled Compact View', 'ti-spacing-vertical');" title="Toggle Compact View">
@@ -647,12 +656,10 @@ tbody td:last-child{border-right:none}
         <span>🔄 SVN Status · Loading…</span>
         <span>💻 TAB Summary · Loading…</span>
         <span>📅 Future Date · Loading…</span>
-        <span>📊 Model Wise · Loading…</span>
         <span>📱 Non-SVN Summary · Loading…</span>
         <span>🔄 SVN Status · Loading…</span>
         <span>💻 TAB Summary · Loading…</span>
         <span>📅 Future Date · Loading…</span>
-        <span>📊 Model Wise · Loading…</span>
       </div>
     </div>
   </div>
@@ -705,7 +712,6 @@ tbody td:last-child{border-right:none}
             <div class="qtile" onclick="navigate('svn-status')"><div class="q-icon qi-indigo">✅</div><div><div class="q-name">SVN Status</div><div class="q-sub">Mobile · SVN parts</div></div></div>
             <div class="qtile" onclick="navigate('future-date')"><div class="q-icon qi-red">📅</div><div><div class="q-name">Future Date</div><div class="q-sub">Mobile · Schedule</div></div></div>
             <div class="qtile" onclick="navigate('tab-summary')"><div class="q-icon qi-purple">📉</div><div><div class="q-name">TAB Summary</div><div class="q-sub">Tab platform</div></div></div>
-            <div class="qtile" onclick="navigate('model-wise')"><div class="q-icon qi-green">📱</div><div><div class="q-name">Model Wise</div><div class="q-sub">Mobile · Per model</div></div></div>
             <div class="qtile" onclick="navigate('detailed')"><div class="q-icon qi-pink">🔍</div><div><div class="q-name">Detailed Records</div><div class="q-sub">All sources</div></div></div>
           </div>
         </div>
@@ -735,11 +741,12 @@ tbody td:last-child{border-right:none}
       <!-- Trend chart -->
       <div class="card">
         <div class="card-hd">
-          <div class="card-title"><i class="ti ti-chart-line"></i> Close % Trend — Non-SVN vs SVN vs TAB</div>
+          <div class="card-title"><i class="ti ti-chart-line"></i> Close % Trend — Non-SVN vs SVN vs TAB (SAP)</div>
           
           <div style="display:flex; align-items:center; gap:12px;">
             <select class="tbl-filter-select" id="h-year-filter">
               <option value="all">All Years</option>
+              <option value="2026" selected>2026</option>
             </select>
 
             <div class="trend-tabs" id="h-trend-tabs">
@@ -1014,73 +1021,6 @@ tbody td:last-child{border-right:none}
     </div>
 
 
-    <!-- ════════════ MODEL WISE ════════════ -->
-    <div class="page" id="page-model-wise">
-      <div class="sec-header">
-        <div><div class="sec-title"><i class="ti ti-device-mobile-stats"></i> Model Wise</div><div class="sec-sub">Mobile · Per-model ECN breakdown and statistics</div></div>
-      </div>
-      <div class="kpi-grid g3" id="mw-kpi">
-        <div class="kpi"><div class="kpi-bar b-blue"></div><div class="kpi-label"><i class="ti ti-devices"></i> Total Models</div><div class="kpi-val" id="mw-models">—</div><div class="kpi-delta d-neutral">Unique</div></div>
-        <div class="kpi"><div class="kpi-bar b-teal"></div><div class="kpi-label"><i class="ti ti-file-description"></i> Total Records</div><div class="kpi-val" id="mw-total">—</div><div class="kpi-delta d-neutral">All rows</div></div>
-        <div class="kpi"><div class="kpi-bar b-amber"></div><div class="kpi-label"><i class="ti ti-list"></i> Columns</div><div class="kpi-val" id="mw-cols">—</div><div class="kpi-delta d-neutral">Data fields</div></div>
-      </div>
-      <div class="card">
-        <div class="card-hd"><div class="card-title"><i class="ti ti-chart-bar"></i> Model ECN Count (Top 20)</div></div>
-        <div class="chart-wrap" style="height:260px"><canvas id="mw-chart"></canvas></div>
-      </div>
-      <div class="card">
-        <div class="tbl-toolbar">
-          <div class="search-box"><i class="ti ti-search"></i><input type="text" placeholder="Search model…" id="mw-search" oninput="filterTable('mw')"></div>
-          <span class="tbl-count" id="mw-count"></span>
-          <button class="dl-btn" onclick="downloadCSV('mw')"><i class="ti ti-download"></i> Export CSV</button>
-        </div>
-        <div class="tbl-wrap"><div id="mw-table"><div class="loading"><div class="spinner"></div><p>Loading data…</p></div></div></div>
-      </div>
-    </div>
-
-
-    <!-- ════════════ OVERALL (Mobile) ════════════ -->
-    <div class="page" id="page-overall">
-      <div class="sec-header">
-        <div><div class="sec-title"><i class="ti ti-layout-dashboard"></i> Overall — Mobile</div><div class="sec-sub">Complete mobile ECN data — all columns</div></div>
-      </div>
-      <div class="kpi-grid g3">
-        <div class="kpi"><div class="kpi-bar b-blue"></div><div class="kpi-label"><i class="ti ti-file-description"></i> Total Records</div><div class="kpi-val" id="ov-total">—</div><div class="kpi-delta d-neutral">All rows</div></div>
-        <div class="kpi"><div class="kpi-bar b-teal"></div><div class="kpi-label"><i class="ti ti-devices"></i> Unique Models</div><div class="kpi-val" id="ov-models">—</div><div class="kpi-delta d-neutral">Models</div></div>
-        <div class="kpi"><div class="kpi-bar b-purple"></div><div class="kpi-label"><i class="ti ti-list"></i> Data Columns</div><div class="kpi-val" id="ov-cols">—</div><div class="kpi-delta d-neutral">Fields</div></div>
-      </div>
-      <div class="card">
-        <div class="tbl-toolbar">
-          <div class="search-box"><i class="ti ti-search"></i><input type="text" placeholder="Search all fields…" id="ov-search" oninput="filterTable('ov')"></div>
-          <span class="tbl-count" id="ov-count"></span>
-          <button class="dl-btn" onclick="downloadCSV('ov')"><i class="ti ti-download"></i> Export CSV</button>
-        </div>
-        <div class="tbl-wrap"><div id="ov-table"><div class="loading"><div class="spinner"></div><p>Loading data…</p></div></div></div>
-      </div>
-    </div>
-
-
-    <!-- ════════════ TAB OVERALL ════════════ -->
-    <div class="page" id="page-tab-overall">
-      <div class="sec-header">
-        <div><div class="sec-title"><i class="ti ti-device-tablet"></i> TAB Overall</div><div class="sec-sub">Tab platform · complete data view</div></div>
-      </div>
-      <div class="kpi-grid g3">
-        <div class="kpi"><div class="kpi-bar b-purple"></div><div class="kpi-label"><i class="ti ti-file-description"></i> Total Records</div><div class="kpi-val" id="to-total">—</div><div class="kpi-delta d-neutral">All rows</div></div>
-        <div class="kpi"><div class="kpi-bar b-blue"></div><div class="kpi-label"><i class="ti ti-devices"></i> Unique Models</div><div class="kpi-val" id="to-models">—</div><div class="kpi-delta d-neutral">Models</div></div>
-        <div class="kpi"><div class="kpi-bar b-teal"></div><div class="kpi-label"><i class="ti ti-list"></i> Data Columns</div><div class="kpi-val" id="to-cols">—</div><div class="kpi-delta d-neutral">Fields</div></div>
-      </div>
-      <div class="card">
-        <div class="tbl-toolbar">
-          <div class="search-box"><i class="ti ti-search"></i><input type="text" placeholder="Search all fields…" id="to-search" oninput="filterTable('to')"></div>
-          <span class="tbl-count" id="to-count"></span>
-          <button class="dl-btn" onclick="downloadCSV('to')"><i class="ti ti-download"></i> Export CSV</button>
-        </div>
-        <div class="tbl-wrap"><div id="to-table"><div class="loading"><div class="spinner"></div><p>Loading data…</p></div></div></div>
-      </div>
-    </div>
-
-
     <!-- ════════════ TAB SUMMARY ════════════ -->
     <div class="page" id="page-tab-summary">
       <div class="sec-header">
@@ -1343,9 +1283,6 @@ const URLS = {
   nsStatus: MOBILE_BASE + '28829336',
   svStatus: MOBILE_BASE + '1278910407',
   futDate:  MOBILE_BASE + '827296363',
-  modelW:   MOBILE_BASE + '1238856472',
-  overall:  MOBILE_BASE + '1689504300',
-  tabOv:    TAB_BASE    + '249067076',
   tabSum:   TAB_BASE    + '970326464',
   tabStat:  TAB_BASE    + '450360842',
   tabFut:   TAB_BASE    + '1037340646',
@@ -1421,22 +1358,6 @@ function debouncedGlobalFilter() {
   }, 500);
 }
 
-// function applyGlobalFilter() {
-//   toast('Applying global filters...', 'ti-filter');
-  
-//   // 1. Tell the app that all background pages need to be re-loaded 
-//   // with the new filter next time they are viewed (or printed)
-//   Object.keys(PAGE_LOADERS).forEach(page => {
-//     if (page !== curPage) {
-//       loaded.delete(page);
-//     }
-//   });
-
-//   // 2. Immediately reload the page you are currently looking at
-//   if (PAGE_LOADERS[curPage]) {
-//     PAGE_LOADERS[curPage]().catch(e => console.error(e));
-//   }
-// }
 function applyToolbarSort(key) {
   const select = document.getElementById(key + '-sort');
   if (!select || !select.value) return;
@@ -1802,23 +1723,6 @@ function sortTable(elId, colKey) {
   renderTable(elId,sorted,src.cols,src.tagCols,src.countEl);
 }
 
-// function filterTable(key) {
-//   const src=TDATA[key]; if(!src) return;
-//   const q  = (document.getElementById(key+'-search') ?.value || '').toLowerCase();
-
-//   const stFilter=document.getElementById(key+'-status-filter')?.value||'';
-//   const tyFilter=document.getElementById(key+'-type-filter')?.value||'';
-//   const srcFilter=document.getElementById(key+'-src')?.value||'';
-//   let rows=src.rows;
-//   if(q)        rows=rows.filter(r=>Object.values(r).some(v=>(v||'').toLowerCase().includes(q)));
-  
-//   if(stFilter) rows=rows.filter(r=>Object.values(r).some(v=>(v||'').toUpperCase().includes(stFilter)));
-//   if(tyFilter) rows=rows.filter(r=>Object.values(r).some(v=>(v||'').toUpperCase().includes(tyFilter)));
-//   if(srcFilter)rows=rows.filter(r=>(r.__source||'').includes(srcFilter));
-//   src.filtered=rows;
-//   renderTable(src.tableEl, rows, src.cols, src.tagCols, src.countEl);
-// }
-
 function downloadCSV(key) {
   const src = TDATA[key]; 
   // Changed src.rows to src.filtered so it respects table searches
@@ -1839,11 +1743,6 @@ function downloadCSV(key) {
   a.download = key + '_ecn_export.csv'; 
   a.click();
   toast('Filtered CSV downloaded', 'ti-download');
-}
-
-function setTData(key,rows,cols,tagCols,tableEl,countEl) {
-  TDATA[key]={rows,cols,tagCols,tableEl,countEl,filtered:rows};
-  filterTable(key);
 }
 
 /* ═══════════════════════════════════════════════
@@ -1877,7 +1776,6 @@ async function loadHome() {
     document.getElementById('h-open-sub').textContent = `${total ? (open/total*100).toFixed(1) : 0}% still open`;
     document.getElementById('h-tab').textContent = fmt(tab.length);
 
-    // ... (rest of the function for Donut chart and Platform bars remains the same)
     // Donut
     const donutLabels=['Implemented','Not Implemented'];
     const donutData=[closed,open];
@@ -1899,7 +1797,20 @@ async function loadHome() {
       ['TAB Platform',tabPct,'f-purple'],
       ['Overall',+rate,'f-amber'],
     ].map(([l,p,c])=>`<div class="bar-row"><div class="bar-lbl">${l}</div><div class="bar-track"><div class="bar-fill ${c}" style="width:${p}%"></div></div><div class="bar-pct">${p}%</div></div>`).join('');
-    
+
+    // Populate year filter with available years (default 2026)
+    const homeYears = [...new Set([...ns, ...sv, ...tab].map(r => {
+      const d = parseDate(r['DATE'] || r['Date']);
+      return d && !isNaN(d) ? d.getFullYear() : null;
+    }).filter(Boolean))].sort((a, b) => b - a);
+    const hYearSel = document.getElementById('h-year-filter');
+    if (hYearSel && !hYearSel.dataset.populated) {
+      hYearSel.innerHTML = '<option value="all">All Years</option>' +
+        homeYears.map(y => `<option value="${y}">${y}</option>`).join('');
+      hYearSel.value = homeYears.includes(2026) ? '2026' : 'all';
+      hYearSel.dataset.populated = '1';
+    }
+
     // Render chart (using same consistent ecnCol check)
     const renderHome = p => {
       const selectedYear = document.getElementById('h-year-filter').value;
@@ -1933,7 +1844,10 @@ async function loadHome() {
       ], {pct:true, min:0, max:110, legend:false});
     };
 
-    document.getElementById('h-year-filter').addEventListener('change', () => renderHome());
+    if (!hYearSel.dataset.bound) {
+      hYearSel.addEventListener('change', () => renderHome());
+      hYearSel.dataset.bound = '1';
+    }
     renderHome('weekly');
     bindTrendTabs('h-trend-tabs', renderHome);
     
@@ -1969,7 +1883,6 @@ async function loadNsSum() {
     setTData('ns',rows,cols.length?cols:Object.keys(rows[0]||{}).slice(0,11), tagCols, 'ns-table','ns-count');
     
     const render=p=>{const g=closePctTrend(rows,'DATE',r=>isClose(r['CUSTOMER ECN NO.']),p);makeLine('ns-chart',g.labels,[lineDs('Close %',g.data,COLORS.blue)],{pct:true,min:0,max:110});};
-    // const render=p=>{const g=closePctTrend(rows, dField, r=>isImpl(r[sField]), p);makeLine('ns-chart',g.labels,[lineDs('Close %',g.data,COLORS.blue)],{pct:true,min:0,max:110});};
     render('weekly'); bindTrendTabs('ns-trend-tabs',render);
     toast('Non-SVN Summary loaded');
   } catch(e){console.error(e);showErr('ns-table','Non-SVN Summary');}
@@ -2002,7 +1915,6 @@ async function loadSvSum() {
     tagCols[sField] = v=>isImpl(v)?'tag-green':'tag-amber';
     setTData('sv',rows,cols.length?cols:Object.keys(rows[0]||{}).slice(0,11), tagCols, 'sv-table','sv-count');
     
-    // const render=p=>{const g=closePctTrend(rows, dField, r=>isImpl(r[sField]), p);makeLine('sv-chart',g.labels,[lineDs('Close %',g.data,COLORS.teal)],{pct:true,min:0,max:110});};
     const render=p=>{const g=closePctTrend(rows,'DATE',r=>isClose(r['CUSTOMER ECN NO.']),p);makeLine('sv-chart',g.labels,[lineDs('Close %',g.data,COLORS.teal)],{pct:true,min:0,max:110});}; 
     render('weekly'); bindTrendTabs('sv-trend-tabs',render);
     toast('SVN Summary loaded');
@@ -2093,53 +2005,6 @@ async function loadFutDate() {
   } catch(e){console.error(e);showErr('fd-table','Future Date');}
 }
 
-async function loadModelWise() {
-  try {
-    const rows=await loadCSV('modelW');
-    const models=new Set(rows.map(r=>r.MODEL||r.Model||r['Model Name']).filter(Boolean)).size;
-    document.getElementById('mw-models').textContent=fmt(models);
-    document.getElementById('mw-total').textContent=fmt(rows.length);
-    document.getElementById('mw-cols').textContent=fmt(Object.keys(rows[0]||{}).length);
-    // Bar chart of top models
-    const modelField=Object.keys(rows[0]||{}).find(k=>/model/i.test(k))||'MODEL';
-    const counts={};
-    rows.forEach(r=>{const m=(r[modelField]||'').trim();if(m)counts[m]=(counts[m]||0)+1;});
-    const top=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,20);
-    makeBar('mw-chart',top.map(x=>x[0]),top.map(x=>x[1]),COLORS.blue);
-    const cols=Object.keys(rows[0]||{}).slice(0,12);
-    setTData('mw',rows,cols,{},'mw-table','mw-count');
-    toast('Model Wise loaded');
-  } catch(e){console.error(e);showErr('mw-table','Model Wise');}
-}
-
-async function loadOverall() {
-  try {
-    const rows=await loadCSV('overall');
-    const modelField=Object.keys(rows[0]||{}).find(k=>/model/i.test(k))||'MODEL';
-    const models=new Set(rows.map(r=>r[modelField]).filter(Boolean)).size;
-    document.getElementById('ov-total').textContent=fmt(rows.length);
-    document.getElementById('ov-models').textContent=fmt(models);
-    document.getElementById('ov-cols').textContent=fmt(Object.keys(rows[0]||{}).length);
-    const cols=Object.keys(rows[0]||{}).slice(0,14);
-    setTData('ov',rows,cols,{},'ov-table','ov-count');
-    toast('Overall loaded');
-  } catch(e){console.error(e);showErr('ov-table','Overall');}
-}
-
-async function loadTabOverall() {
-  try {
-    const rows=await loadCSV('tabOv');
-    const modelField=Object.keys(rows[0]||{}).find(k=>/model/i.test(k))||'MODEL';
-    const models=new Set(rows.map(r=>r[modelField]).filter(Boolean)).size;
-    document.getElementById('to-total').textContent=fmt(rows.length);
-    document.getElementById('to-models').textContent=fmt(models);
-    document.getElementById('to-cols').textContent=fmt(Object.keys(rows[0]||{}).length);
-    const cols=Object.keys(rows[0]||{}).slice(0,14);
-    setTData('to',rows,cols,{},'to-table','to-count');
-    toast('TAB Overall loaded');
-  } catch(e){console.error(e);showErr('to-table','TAB Overall');}
-}
-
 async function loadTabSum() {
   try {
     const rows = await loadCSV('tabSum');
@@ -2147,8 +2012,6 @@ async function loadTabSum() {
     // 1. Identify columns
     const modelField = Object.keys(rows[0]||{}).find(k=>/model/i.test(k)) || 'MODEL';
     
-    // We use the same "isClose" logic based on "CUSTOMER ECN NO."
-    // If your sheet header is different, ensure "CUSTOMER ECN NO." matches exactly
     const ecnField = 'CUSTOMER ECN NO.'; 
     
 // --- YOUR NEW CASE-INSENSITIVE LOGIC ---
@@ -2332,13 +2195,6 @@ async function loadDetailed() {
       const windImpl  = r['WIND-CHILL IMPLEMENTATION DATE'] || '';
       const implDate  = windImpl || sapImpl;
       
-      // For TAB rows: if no impl date but CUSTOMER ECN NO. says "Close"/"Implemented",
-      // use SAP date as fallback; if still missing, diff stays null (goes to pending)
-
-
-      // const diff = _detDiffDays(received, implDate);
-
-
       let diff = _detDiffDays(received, implDate);
       if (diff === null && src === 'TAB' && isClose(r['CUSTOMER ECN NO.'] || '')) {
         diff = 0;
@@ -2378,13 +2234,6 @@ async function loadDetailed() {
       yearSel.innerHTML = '<option value="all">All Years</option>' +
         years.map(y => `<option value="${y}">${y}</option>`).join('');
       yearSel.value = '2026';
-    }
-
-    // Populate the year dropdown on Home page too
-    const hYearSel = document.getElementById('h-year-filter');
-    if (hYearSel && hYearSel.options.length <= 1) {
-      hYearSel.innerHTML = '<option value="all">All Years</option>' +
-        years.map(y => `<option value="${y}">${y}</option>`).join('');
     }
 
     renderDetailed();
@@ -2815,9 +2664,6 @@ const PAGE_META = {
   'non-svn-status': ['📋','NON SVN Status','Mobile · Part-level detail'],
   'svn-status':     ['✅','SVN Status','Mobile · SVN part detail'],
   'future-date':    ['📅','Future Date','Mobile · Upcoming schedule'],
-  'model-wise':     ['📱','Model Wise','Mobile · Per-model view'],
-  'overall':        ['🗂️','Overall','Mobile · Full data view'],
-  'tab-overall':    ['💻','TAB Overall','Tab · Full data view'],
   'tab-summary':    ['📉','TAB Summary','Tab · Close % tracking'],
   'tab-status':     ['📋','TAB Status','Tab · Part-level detail'],
   'tab-future':     ['📅','TAB Future Date','Tab · Upcoming schedule'],
@@ -2831,9 +2677,6 @@ const PAGE_LOADERS = {
   'non-svn-status': loadNsStatus,
   'svn-status':     loadSvStatus,
   'future-date':    loadFutDate,
-  'model-wise':     loadModelWise,
-  'overall':        loadOverall,
-  'tab-overall':    loadTabOverall,
   'tab-summary':    loadTabSum,
   'tab-status':     loadTabStatus,
   'tab-future':     loadTabFut,
@@ -2857,7 +2700,7 @@ async function prepareAndPrint() {
     pendingLoaders.push(PAGE_LOADERS[page]()); 
   });
 
-  // 3. Wait for all 13 pages to finish processing the filtered data
+  // 3. Wait for all pages to finish processing the filtered data
   await Promise.all(pendingLoaders).catch(e => console.error(e));
 
   // 4. Temporarily reveal all pages to fix Chart.js print scaling
@@ -2910,6 +2753,7 @@ function refreshAll() {
   toast('Refreshing all data…','ti-refresh');
   navigate(curPage);
   loadHome();
+  loadFutureAlerts();
 }
 
 /* ═══════════════════════════════════════════════
@@ -2919,12 +2763,12 @@ function retry(elId, name) {
   // find which page loader owns this table element
   const key = Object.entries({
     'ns-table':'ns','sv-table':'sv','nss-table':'nss','svs-table':'svs',
-    'fd-table':'fd','mw-table':'mw','ov-table':'ov','to-table':'to',
+    'fd-table':'fd',
     'ts-table':'ts','tss-table':'tss','tf-table':'tf','det-table':'det'
-  })[Object.keys({'ns-table':'ns','sv-table':'sv','nss-table':'nss','svs-table':'svs','fd-table':'fd','mw-table':'mw','ov-table':'ov','to-table':'to','ts-table':'ts','tss-table':'tss','tf-table':'tf','det-table':'det'}).indexOf(elId)]?.[1];
+  })[Object.keys({'ns-table':'ns','sv-table':'sv','nss-table':'nss','svs-table':'svs','fd-table':'fd','ts-table':'ts','tss-table':'tss','tf-table':'tf','det-table':'det'}).indexOf(elId)]?.[1];
   const pageMap={
     'ns':'non-svn-summary','sv':'svn-summary','nss':'non-svn-status','svs':'svn-status',
-    'fd':'future-date','mw':'model-wise','ov':'overall','to':'tab-overall',
+    'fd':'future-date',
     'ts':'tab-summary','tss':'tab-status','tf':'tab-future','det':'detailed'
   };
   const pg=pageMap[key];
@@ -2933,7 +2777,7 @@ function retry(elId, name) {
     // clear cache for that source
     const srcMap={
       'non-svn-summary':['nsSum'],'svn-summary':['svSum'],'non-svn-status':['nsStatus'],'svn-status':['svStatus'],
-      'future-date':['futDate'],'model-wise':['modelW'],'overall':['overall'],'tab-overall':['tabOv'],
+      'future-date':['futDate'],
       'tab-summary':['tabSum'],'tab-status':['tabStat'],'tab-future':['tabFut'],'detailed':['nsSum','svSum','tabSum']
     };
     (srcMap[pg]||[]).forEach(k=>delete CACHE[k]);
@@ -2967,9 +2811,9 @@ function showKbd() { document.getElementById('kbd-modal').classList.add('open');
 function closeKbd(){ document.getElementById('kbd-modal').classList.remove('open'); }
 
 const kbdPageMap = {
-  'h':'home','3':'non-svn-summary','6':'svn-summary','4':'non-svn-status',
-  '7':'svn-status','5':'future-date','1':'model-wise','2':'overall',
-  '8':'tab-overall','9':'tab-summary','0':'detailed'
+  'h':'home','1':'non-svn-summary','4':'svn-summary','2':'non-svn-status',
+  '5':'svn-status','3':'future-date','8':'tab-status','6':'tab-future',
+  '7':'tab-summary','0':'detailed'
 };
 
 document.addEventListener('keydown', e => {
@@ -3052,7 +2896,7 @@ function renderTablePaged(key, rows, cols, tagCols, tableEl, countEl) {
   if(tblWrap) tblWrap.after(pgDiv);
 }
 
-// Override setTData to use pagination
+// setTData uses pagination
 function setTData(key,rows,cols,tagCols,tableEl,countEl) {
   TDATA[key]={rows,cols,tagCols,tableEl,countEl,filtered:rows};
   pgState[key]=1;
@@ -3192,8 +3036,6 @@ function updateTicker(nsData, svData, tabData) {
 /* ═══════════════════════════════════════════════
    PATCH loadHome to add sparklines + ticker
 ═══════════════════════════════════════════════ */
-const _origLoadHome = loadHome;
-// We'll patch it after data arrives — inject sparkline canvases into home KPI cards
 function injectSparkCanvases() {
   const ids=[['h-total','h-spark-total'],['h-closed','h-spark-closed'],['h-open','h-spark-open'],['h-tab','h-spark-tab']];
   ids.forEach(([valId, sparkId]) => {
@@ -3205,6 +3047,110 @@ function injectSparkCanvases() {
     }
   });
 }
+
+/* ═══════════════════════════════════════════════
+   FUTURE DATE ALERTS (Notification Bell)
+   Shows mobile + tab "Future Date" rows whose
+   implementation date is exactly tomorrow.
+═══════════════════════════════════════════════ */
+async function loadFutureAlerts() {
+  try {
+    const [fd, tf] = await Promise.all([loadCSV('futDate'), loadCSV('tabFut')]);
+
+    // 1. Get exact strings for Today and Tomorrow
+    const today = new Date();
+    const todayStr = today.toDateString();
+    
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toDateString();
+
+    const tagged = [
+      ...fd.map(r => ({...r, __src:'Mobile'})),
+      ...tf.map(r => ({...r, __src:'TAB'}))
+    ];
+
+    const matches = [];
+    const seenECNs = new Set(); 
+
+    tagged.forEach(r => {
+      let hitDate = null;
+      Object.values(r).forEach(v => {
+        if (hitDate || !v) return;
+        const d = parseDate(v);
+        // 2. Check if the date matches EITHER today OR tomorrow
+        if (d && !isNaN(d) && (d.toDateString() === todayStr || d.toDateString() === tomorrowStr)) {
+            hitDate = d;
+        }
+      });
+      
+      if (hitDate) {
+        const ecn = (r['CUSTOMER ECN NO.'] || r['Customer ECN No.'] || r['ECN NO.'] || '').toString().trim();
+        
+        // 1. Determine if it is Today or Tomorrow right away
+        const displayDate = hitDate.toDateString() === todayStr ? 'Today' : 'Tomorrow';
+        
+        // 2. Create a unique signature combining the ECN and the Date (e.g., "ECN-123_Today")
+        const uniqueSignature = ecn + '_' + displayDate;
+        
+        // 3. Check if we have seen this EXACT combination before
+        if (!seenECNs.has(uniqueSignature)) {
+          if (ecn !== '') seenECNs.add(uniqueSignature); 
+          
+          // Store the formatted date so we can display it in the UI
+          r.__displayDate = displayDate;
+          matches.push(r);
+        }
+      }
+    });
+
+    const badge = document.getElementById('notif-badge');
+    const list  = document.getElementById('notif-list');
+
+    if (badge) {
+      if (matches.length) { badge.textContent = matches.length > 99 ? '99+' : matches.length; badge.style.display = 'inline-block'; }
+      else badge.style.display = 'none';
+    }
+
+    if (list) {
+      if (!matches.length) {
+        list.innerHTML = '<div style="padding:8px 0;color:var(--grey-400)">No ECNs due today or tomorrow.</div>';
+      } else {
+        list.innerHTML = matches.slice(0, 30).map(r => {
+          const model = r.MODEL || r.Model || r['Model Name'] || '—';
+          const ecn   = r['CUSTOMER ECN NO.'] || r['Customer ECN No.'] || r['ECN NO.'] || '—';
+          const tagCls = r.__src === 'TAB' ? 'tag-purple' : 'tag-blue';
+          const dateColor = r.__displayDate === 'Today' ? 'color:var(--red-500);font-weight:600;' : 'color:var(--amber-600);';
+          
+          // 3. Output the UI with the specific due date noted
+          return `<div style="padding:7px 0;border-bottom:1px solid var(--grey-100)">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
+                <div><span class="tag ${tagCls}">${r.__src}</span><b style="margin-left:4px">${model}</b></div>
+                <span style="font-size:10px; ${dateColor}">${r.__displayDate}</span>
+            </div>
+            <span style="color:var(--grey-500)">ECN: ${ecn}</span>
+          </div>`;
+        }).join('') + (matches.length > 30 ? `<div style="padding:6px 0;color:var(--grey-400);font-style:italic">+${matches.length-30} more…</div>` : '');
+      }
+    }
+  } catch(e) {
+    console.warn('Future alert load failed', e);
+  }
+}
+
+function toggleNotifPanel() {
+  const panel = document.getElementById('notif-panel');
+  if (!panel) return;
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+document.addEventListener('click', (e) => {
+  const wrap = document.getElementById('notif-wrap');
+  const panel = document.getElementById('notif-panel');
+  if (wrap && panel && panel.style.display === 'block' && !wrap.contains(e.target)) {
+    panel.style.display = 'none';
+  }
+});
 
 /* ═══════════════════════════════════════════════
    KPI CLICK ROUTING (POPUP MODAL) - CORRECTED
@@ -3299,7 +3245,7 @@ applyDark();
 injectSparkCanvases();
 loaded.add('home');
 
-// Load home and after data arrives, update sparklines + ticker
+// Load home and after data arrives, update sparklines + ticker + future alerts
 (async()=>{
   await loadHome();
   try {
@@ -3307,6 +3253,7 @@ loaded.add('home');
     updateTicker(ns,sv,tab);
     buildSparklines(ns,sv,tab);
   } catch(e){ console.warn('Ticker/sparkline init failed',e); }
+  loadFutureAlerts();
 })();
 /* ═══════════════════════════════════════════════
    SILENT AUTO-REFRESH (Toggleable)
@@ -3322,6 +3269,7 @@ function startAutoRefresh() {
             loaded.clear();
             _detRaw = [];
             if (PAGE_LOADERS[curPage]) PAGE_LOADERS[curPage]();
+            loadFutureAlerts();
             toast('Live data auto-refreshed', 'ti-refresh');
         }
     }, 600000); // 10 minutes
