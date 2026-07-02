@@ -702,17 +702,11 @@ tbody td:last-child{border-right:none}
       </div>
 
       <div class="two-col">
-        <!-- Quick Nav -->
+        <!-- Upcoming ECN Alerts -->
         <div class="card">
-          <div class="card-hd"><div class="card-title">🧭 Quick Navigation</div></div>
-          <div class="qnav-grid">
-            <div class="qtile" onclick="navigate('non-svn-summary')"><div class="q-icon qi-blue">📈</div><div><div class="q-name">Non-SVN Summary</div><div class="q-sub">Mobile · Close % tracking</div></div></div>
-            <div class="qtile" onclick="navigate('svn-summary')"><div class="q-icon qi-teal">📊</div><div><div class="q-name">SVN Summary</div><div class="q-sub">Mobile · SVN close %</div></div></div>
-            <div class="qtile" onclick="navigate('non-svn-status')"><div class="q-icon qi-amber">📋</div><div><div class="q-name">Non-SVN Status</div><div class="q-sub">Mobile · Part detail</div></div></div>
-            <div class="qtile" onclick="navigate('svn-status')"><div class="q-icon qi-indigo">✅</div><div><div class="q-name">SVN Status</div><div class="q-sub">Mobile · SVN parts</div></div></div>
-            <div class="qtile" onclick="navigate('future-date')"><div class="q-icon qi-red">📅</div><div><div class="q-name">Future Date</div><div class="q-sub">Mobile · Schedule</div></div></div>
-            <div class="qtile" onclick="navigate('tab-summary')"><div class="q-icon qi-purple">📉</div><div><div class="q-name">TAB Summary</div><div class="q-sub">Tab platform</div></div></div>
-            <div class="qtile" onclick="navigate('detailed')"><div class="q-icon qi-pink">🔍</div><div><div class="q-name">Detailed Records</div><div class="q-sub">All sources</div></div></div>
+          <div class="card-hd"><div class="card-title">🔔 Upcoming ECN Alerts</div></div>
+          <div id="home-alerts" style="max-height:290px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--grey-300) transparent;">
+            <div class="loading"><div class="spinner"></div></div>
           </div>
         </div>
 
@@ -3153,6 +3147,88 @@ document.addEventListener('click', (e) => {
 });
 
 /* ═══════════════════════════════════════════════
+   HOME PAGE ALERTS — This Week / This Month / This Year
+   Replaces the old Quick Navigation card on Home.
+═══════════════════════════════════════════════ */
+async function loadHomeAlerts() {
+  const el = document.getElementById('home-alerts');
+  try {
+    const [fd, tf] = await Promise.all([loadCSV('futDate'), loadCSV('tabFut')]);
+
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    const tagged = [
+      ...fd.map(r => ({...r, __src:'Mobile'})),
+      ...tf.map(r => ({...r, __src:'TAB'}))
+    ];
+
+    const weekItems = [], monthItems = [], yearItems = [];
+    const seen = new Set();
+
+    tagged.forEach(r => {
+      let hitDate = null;
+      Object.values(r).forEach(v => {
+        if (hitDate || !v) return;
+        const d = parseDate(v);
+        if (d && !isNaN(d) && d >= today) hitDate = d;
+      });
+      if (!hitDate) return;
+
+      const model = r.MODEL || r.Model || r['Model Name'] || '—';
+      const ecn   = r['CUSTOMER ECN NO.'] || r['Customer ECN No.'] || r['ECN NO.'] || '—';
+
+      const sig = ecn + '_' + r.__src + '_' + hitDate.toDateString();
+      if (seen.has(sig)) return;
+      seen.add(sig);
+
+      const item = { ecn, model, src: r.__src, date: hitDate };
+      const diffDays = Math.round((hitDate - today) / 86400000);
+
+      if (diffDays <= 7) weekItems.push(item);
+      else if (diffDays <= 30) monthItems.push(item);
+      else if (hitDate.getFullYear() === today.getFullYear()) yearItems.push(item);
+    });
+
+    [weekItems, monthItems, yearItems].forEach(arr => arr.sort((a,b)=>a.date-b.date));
+
+    const renderGroup = (title, items, color) => {
+      const head = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;margin-top:2px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:${color}">${title}</div>
+          <span style="font-size:10px;font-weight:600;color:var(--grey-400)">${items.length} ECN${items.length===1?'':'s'}</span>
+        </div>`;
+      if (!items.length) {
+        return `<div style="margin-bottom:14px">${head}<div style="font-size:11px;color:var(--grey-400);padding:4px 0 2px">No upcoming ECNs</div></div>`;
+      }
+      const rows = items.slice(0,20).map(it => {
+        const tagCls = it.src === 'TAB' ? 'tag-purple' : 'tag-blue';
+        const dateStr = it.date.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+        return `<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:4px 0;border-bottom:1px solid var(--grey-100);font-size:11px">
+          <div style="display:flex;align-items:center;gap:5px;overflow:hidden;flex:1">
+            <span class="tag ${tagCls}" style="flex-shrink:0;font-size:9px;padding:1px 6px">${it.src}</span>
+            <span style="font-weight:600;color:var(--grey-800);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100px" title="${it.model}">${it.model}</span>
+            <span style="color:var(--grey-400)">·</span>
+            <span style="color:var(--grey-500);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px" title="${it.ecn}">${it.ecn}</span>
+          </div>
+          <span style="color:var(--grey-500);flex-shrink:0;font-size:10px">${dateStr}</span>
+        </div>`;
+      }).join('');
+      const more = items.length > 20 ? `<div style="font-size:10px;color:var(--grey-400);padding-top:3px;font-style:italic">+${items.length-20} more…</div>` : '';
+      return `<div style="margin-bottom:10px">${head}${rows}${more}</div>`;
+    };
+
+    const html = renderGroup('This Week', weekItems, 'var(--red-700)') +
+                 renderGroup('This Month', monthItems, 'var(--amber-700)') +
+                 renderGroup('This Year', yearItems, 'var(--blue-700)');
+
+    if (el) el.innerHTML = html;
+  } catch(e) {
+    console.warn('Home alerts load failed', e);
+    if (el) el.innerHTML = '<div class="empty"><i class="ti ti-mood-empty"></i><p>Could not load alerts</p></div>';
+  }
+}
+
+/* ═══════════════════════════════════════════════
    KPI CLICK ROUTING (POPUP MODAL) - CORRECTED
 ═══════════════════════════════════════════════ */
 function closeDataModal() {
@@ -3254,6 +3330,7 @@ loaded.add('home');
     buildSparklines(ns,sv,tab);
   } catch(e){ console.warn('Ticker/sparkline init failed',e); }
   loadFutureAlerts();
+  loadHomeAlerts();
 })();
 /* ═══════════════════════════════════════════════
    SILENT AUTO-REFRESH (Toggleable)
@@ -3270,6 +3347,7 @@ function startAutoRefresh() {
             _detRaw = [];
             if (PAGE_LOADERS[curPage]) PAGE_LOADERS[curPage]();
             loadFutureAlerts();
+            loadHomeAlerts();
             toast('Live data auto-refreshed', 'ti-refresh');
         }
     }, 600000); // 10 minutes
